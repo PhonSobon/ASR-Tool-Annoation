@@ -166,6 +166,15 @@ class OmniKhmerCTC(nn.Module):
         return self.ctc_head(self.encoder.layer_norm(x))
 
 
+def segment_words(text):
+    """Split Khmer text into dictionary words with khmercut; returns [text] if it isn't installed."""
+    try:
+        from khmercut import tokenize
+    except ImportError:
+        return [text]
+    return tokenize(text)
+
+
 def _resolve_files(source):
     """`source` = local folder with model.safetensors/config.json/vocab.json, or a HF repo id."""
     names = ("model.safetensors", "config.json", "vocab.json")
@@ -221,21 +230,33 @@ class OmniASR:
                     toks.append(cur)
             prev = t
 
-        # Words = runs between spaces, also broken at pauses (Khmer often omits spaces)
-        words, w, space = [], None, False
+        # Runs = clusters between spaces, also broken at pauses (Khmer often omits spaces)
+        runs, run, space = [], None, False
         for s, a, b in toks:
             if not s.strip():
-                w, space = None, True
+                run, space = None, True
                 continue
-            if w is None or (a - w["_last"]) * FRAME_SEC >= PAUSE_SPLIT:
-                w = {"text": "", "start": round(a * FRAME_SEC, 3), "sp": space and bool(words)}
-                words.append(w)
+            if run is None or (a - run["toks"][-1][2]) * FRAME_SEC >= PAUSE_SPLIT:
+                run = {"toks": [], "sp": space and bool(runs)}
+                runs.append(run)
                 space = False
-            w["text"] += s
-            w["_last"] = b
-            w["end"] = round((b + 1) * FRAME_SEC, 3)
-        for w in words:
-            del w["_last"]
+            run["toks"].append((s, a, b))
+
+        # Words = each run split into dictionary words (khmercut), timed by their clusters
+        words = []
+        for run in runs:
+            ts = run["toks"]
+            text = "".join(t[0] for t in ts)
+            pieces = [p for p in segment_words(text) if p.strip()]
+            if "".join(pieces) != text:  # segmenter changed characters -> keep the run whole
+                pieces = [text]
+            owner = [k for k, t in enumerate(ts) for _ in t[0]]  # char offset -> cluster index
+            pos = 0
+            for n, p in enumerate(pieces):
+                a, b = ts[owner[pos]][1], ts[owner[pos + len(p) - 1]][2]
+                pos += len(p)
+                words.append({"text": p, "start": round(a * FRAME_SEC, 3),
+                              "end": round((b + 1) * FRAME_SEC, 3), "sp": run["sp"] and n == 0})
         return {"text": " ".join("".join(t[0] for t in toks).split()), "words": words}
 
     def transcribe_array(self, audio):

@@ -38,6 +38,16 @@
   .crop textarea { width:100%; min-height:60px; resize:vertical; font-size:16px; line-height:1.7; }
   .errmsg { color:var(--err); font-size:13px; margin-top:4px; }
   .small { padding:4px 10px; font-size:12px; }
+  .segview { font-size:14px; line-height:1.9; margin-top:4px; color:#334155; }
+  .segview:empty { display:none; }
+  .segview .lbl { font-size:11px; color:var(--muted); margin-right:6px; }
+  .segview .sw { display:inline-block; padding:0 5px; margin:0 2px 2px 0; background:#f1f5f9; border:1px solid var(--border); border-radius:4px; }
+  .crop.deleted { opacity:.55; border-left-color:#9ca3af; border-style:dashed; padding:8px 12px; }
+  .crop.deleted .crop-head { margin-bottom:0; }
+  .crop.deleted textarea, .crop.deleted .segview, .crop.deleted .errmsg, .crop.deleted .editor,
+  .crop.deleted audio, .crop.deleted .btnRedo, .crop.deleted .btnEdit { display:none !important; }
+  .crop.deleted b { text-decoration:line-through; }
+  button.btnDel:hover { background:#fee2e2; color:var(--err); }
   /* cut editor */
   .editor { margin-top:10px; padding:10px; background:#f8fafc; border:1px solid var(--border); border-radius:8px; outline:none; }
   .editor:focus-within { border-color:#93c5fd; }
@@ -125,7 +135,7 @@
     <div class="row" style="margin-top:12px">
       <button id="btnRun" disabled>▶ Auto Recognition</button>
       <button id="btnStop" class="stop" disabled>■ Stop</button>
-      <button id="btnExport" class="sec" disabled>⬇ Export ZIP (wavs + CSV)</button>
+      <button id="btnExport" class="sec" disabled>⬇ Export ZIP (folder + JSON)</button>
       <label style="font-size:13px;color:var(--muted)"><input type="checkbox" id="skipDone" checked> Skip crops already done</label>
     </div>
     <div class="status" id="status">Upload an audio file to start.</div>
@@ -166,8 +176,24 @@ const fmt = s => { const m = Math.floor(s / 60), x = (s % 60).toFixed(1); return
 function setStatus(t) { $("status").textContent = t; }
 function updateProgress() {
   if (!session) return;
-  const done = session.crops.filter(c => c.state === "done").length;
-  $("progress").style.width = (100 * done / session.crops.length) + "%";
+  const live = session.crops.filter(c => !c.deleted);
+  const done = live.filter(c => c.state === "done").length;
+  $("progress").style.width = (live.length ? 100 * done / live.length : 0) + "%";
+}
+
+// Soft delete: the crop stays in the list (greyed, restorable) but is skipped and not exported
+function toggleDelete(i) {
+  const c = session.crops[i];
+  c.deleted = !c.deleted;
+  if (c.deleted) {
+    if (play && play.i === i) player.pause();
+    $("crop-" + i).querySelector(".editor").style.display = "none";
+    $("crop-" + i).querySelector("audio").pause();
+  }
+  paint(i);
+  updateProgress();
+  const n = session.crops.filter(x => x.deleted).length;
+  setStatus(`Crop ${c.index} ${c.deleted ? "deleted" : "restored"}.` + (n ? ` ${n} deleted crop(s) will be left out of the export.` : ""));
 }
 
 // ---------- Upload & cut ----------
@@ -213,8 +239,10 @@ function renderCrops() {
         <audio controls preload="none" src="${cropUrl(c)}"></audio>
         <button class="sec small btnRedo">↻ Redo</button>
         <button class="sec small btnEdit">✂ Edit cut</button>
+        <button class="sec small btnDel" title="Leave this crop out of the export (can be restored)">🗑 Delete</button>
       </div>
       <textarea placeholder="Text will appear here…"></textarea>
+      <div class="segview" title="Word segmentation (khmercut) — exported as text_segmented"></div>
       <div class="errmsg"></div>
       <div class="editor" tabindex="0" style="display:none">
         <div class="ed-bar">
@@ -237,9 +265,10 @@ function renderCrops() {
         <div class="words"></div>
         <div class="segs"></div>
       </div>`;
-    el.querySelector("textarea").oninput = e => { c.text = e.target.value; };
+    el.querySelector("textarea").oninput = e => { c.text = e.target.value; scheduleSeg(c); };
     el.querySelector(".btnRedo").onclick = () => recognizeOne(i);
     el.querySelector(".btnEdit").onclick = () => toggleEditor(i);
+    el.querySelector(".btnDel").onclick = () => toggleDelete(i);
     const ed = el.querySelector(".editor"), ov = el.querySelector("canvas.ov");
     ed.onkeydown = e => editorKey(i, e);
     ov.onmousedown = e => waveDown(i, e);
@@ -260,11 +289,38 @@ function renderCrops() {
 
 function paint(i) {
   const c = session.crops[i], el = $("crop-" + i);
-  el.className = "crop " + c.state;
-  el.querySelector(".badge").textContent = c.state;
+  el.className = "crop " + (c.deleted ? "deleted" : c.state);
+  el.querySelector(".badge").textContent = c.deleted ? "deleted" : c.state;
+  el.querySelector(".btnDel").textContent = c.deleted ? "↺ Restore" : "🗑 Delete";
   el.querySelector("textarea").value = c.text;
   el.querySelector(".errmsg").textContent = c.error || "";
+  showSeg(c);
+  if (c.text && c.segFor !== c.text) scheduleSeg(c, 0);
   if (editorOpen(i)) renderEditor(i);
+}
+
+// ---------- Word segmentation preview (khmercut, on the server) ----------
+function showSeg(c) {
+  const el = $("crop-" + session.crops.indexOf(c));
+  if (!el) return;
+  const box = el.querySelector(".segview");
+  box.innerHTML = "";
+  if (!c.seg || c.segFor !== c.text) return;
+  box.innerHTML = `<span class="lbl">Segmented</span>`;
+  c.seg.split(" ").forEach(w => { const sp = document.createElement("span"); sp.className = "sw"; sp.textContent = w; box.appendChild(sp); });
+}
+
+function scheduleSeg(c, delay = 500) {   // debounced: re-segment after typing pauses
+  clearTimeout(c._segTimer);
+  c._segTimer = setTimeout(async () => {
+    const text = c.text || "";
+    if (!text.trim()) { c.seg = ""; c.segFor = text; return showSeg(c); }
+    try {
+      const r = await fetch("/segment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+      const j = await r.json();
+      if (r.ok && c.text === text) { c.seg = j.segmented; c.segFor = text; showSeg(c); }
+    } catch (e) {}
+  }, delay);
 }
 
 // ---------- Cut editor: waveform + word timings from recognition ----------
@@ -665,6 +721,7 @@ window.addEventListener("resize", () => session && session.crops.forEach((_, k) 
 // ---------- Recognize ONE crop ----------
 async function recognizeOne(i) {
   const c = session.crops[i];
+  if (c.deleted) return false;
   const apiKey = $("apiKey").value.trim();
   if (isGemini() && !apiKey) { alert("Please enter your Gemini API key."); return false; }
   try {
@@ -728,6 +785,7 @@ $("btnRun").onclick = async () => {
   const n = session.crops.length;
   for (let i = 0; i < n; i++) {
     if (stopFlag) break;
+    if (session.crops[i].deleted) continue;
     if ($("skipDone").checked && session.crops[i].state === "done") continue;
     setStatus(`Recognizing crop ${i + 1} / ${n}…`);
     await recognizeOne(i);   // wait until this crop's text is shown, then go next
@@ -741,10 +799,11 @@ $("btnRun").onclick = async () => {
       return;
     }
   }
-  const done = session.crops.filter(c => c.state === "done").length;
-  const err = session.crops.filter(c => c.state === "error").length;
+  const live = session.crops.filter(c => !c.deleted);
+  const done = live.filter(c => c.state === "done").length;
+  const err = live.filter(c => c.state === "error").length;
   running = false;
-  setStatus(`${stopFlag ? "Stopped" : "Finished"}: ${done}/${n} done${err ? `, ${err} error (click ↻ Redo)` : ""}.`);
+  setStatus(`${stopFlag ? "Stopped" : "Finished"}: ${done}/${live.length} done${err ? `, ${err} error (click ↻ Redo)` : ""}.`);
   $("btnRun").disabled = $("btnCut").disabled = false;
   $("btnStop").disabled = true;
 };
@@ -753,16 +812,22 @@ $("btnStop").onclick = () => { stopFlag = true; setStatus("Stopping after curren
 
 // ---------- Export ----------
 $("btnExport").onclick = async () => {
+  if (!session.crops.some(c => !c.deleted)) return alert("All crops are deleted — nothing to export.");
   const r = await fetch("/export", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session_id: session.session_id, crops: session.crops }),
+    body: JSON.stringify({
+      session_id: session.session_id, name: session.name,
+      crops: session.crops.filter(c => !c.deleted).map(c => ({ file: c.file, start: c.start, end: c.end, text: c.text })),
+    }),
   });
   if (!r.ok) return alert("Export failed");
   const blob = await r.blob();
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `asr_${session.session_id}.zip`;
+  const cd = r.headers.get("Content-Disposition") || "";
+  const m = cd.match(/filename\*=UTF-8''([^;]+)/i) || cd.match(/filename="?([^";]+)"?/i);
+  a.download = m ? decodeURIComponent(m[1]) : `${session.name || "asr"}.zip`;
   a.click();
 };
 </script>

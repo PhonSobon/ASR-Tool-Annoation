@@ -4,4 +4,5 @@ requests
 numpy
 torch
 safetensors
+khmercut
 huggingface_hub

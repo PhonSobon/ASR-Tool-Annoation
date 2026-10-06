@@ -1,11 +1,13 @@
 """Khmer ASR Tool - upload audio, auto-cut into crops, transcribe each crop with Gemini."""
 import base64
-import csv
 import io
+import json
 import os
+import re
 import shutil
 import threading
 import time
+import unicodedata
 import uuid
 import zipfile
 
@@ -95,7 +97,7 @@ def upload():
         crops.append({"index": i, "file": name, "start": start / 1000, "end": end / 1000})
 
     os.remove(src_path)
-    return jsonify(session_id=session_id, duration=len(audio) / 1000, crops=crops)
+    return jsonify(session_id=session_id, name=base_name, duration=len(audio) / 1000, crops=crops)
 
 
 @app.route("/chunks/<session_id>/<path:name>")
@@ -236,30 +238,59 @@ def list_models():
     return jsonify(models=sorted(models, reverse=True))
 
 
+def segment_text(text):
+    """Khmer word segmentation with khmercut: words joined by single spaces."""
+    from khmercut import tokenize
+
+    return " ".join(t for t in tokenize(text) if t.strip()) if text.strip() else ""
+
+
+@app.route("/segment", methods=["POST"])
+def segment():
+    """Word-segment the given text (preview under each crop)."""
+    try:
+        return jsonify(segmented=segment_text(request.get_json(force=True).get("text") or ""))
+    except ImportError:
+        return jsonify(error="khmercut is not installed (pip install khmercut)"), 500
+
+
 @app.route("/export", methods=["POST"])
 def export():
-    """Download ZIP: all crop WAVs + metadata.csv (file, start, end, text)."""
+    """Download ZIP with one folder: <name>/wavs/*.wav + <name>/metadata.json (all crops)."""
     data = request.get_json(force=True)
     session_dir = os.path.join(CHUNK_DIR, os.path.basename(data.get("session_id", "")))
     if not os.path.isdir(session_dir):
         return jsonify(error="Session not found"), 404
 
-    csv_buf = io.StringIO()
-    w = csv.writer(csv_buf)
-    w.writerow(["file", "start", "end", "text"])
-    for c in data.get("crops", []):
-        w.writerow([c["file"], c["start"], c["end"], c.get("text", "")])
+    # folder name = uploaded file's name, made safe for every OS (Khmer letters are kept)
+    name = "".join(ch if ch.isalnum() or ch in "-_" or unicodedata.category(ch).startswith("M") else "_"
+                   for ch in data.get("name") or "")
+    name = re.sub(r"_+", "_", name).strip("_") or f"asr_{data['session_id']}"
+    try:
+        from khmercut import tokenize  # noqa: F401
+        seg = segment_text
+    except ImportError:
+        seg = None
 
-    zip_buf = io.BytesIO()
+    items, zip_buf = [], io.BytesIO()
     with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("metadata.csv", "﻿" + csv_buf.getvalue())  # BOM so Excel shows Khmer
         for c in data.get("crops", []):
-            p = os.path.join(session_dir, os.path.basename(c["file"]))
-            if os.path.isfile(p):
-                z.write(p, arcname=f"wavs/{c['file']}")
+            fname = os.path.basename(c["file"])
+            p = os.path.join(session_dir, fname)
+            if not os.path.isfile(p):
+                continue
+            z.write(p, arcname=f"{name}/wavs/{fname}")
+            text = (c.get("text") or "").strip()
+            start, end = float(c["start"]), float(c["end"])
+            item = {"id": os.path.splitext(fname)[0], "file": f"wavs/{fname}",
+                    "start": round(start, 3), "end": round(end, 3), "duration": round(end - start, 3),
+                    "text": text}
+            if seg:
+                item["text_segmented"] = seg(text)
+            items.append(item)
+        z.writestr(f"{name}/metadata.json", json.dumps(items, ensure_ascii=False, indent=2))
     zip_buf.seek(0)
-    return send_file(zip_buf, mimetype="application/zip", as_attachment=True,
-                     download_name=f"asr_{data['session_id']}.zip")
+    return send_file(zip_buf, mimetype="application/zip", as_attachment=True, download_name=f"{name}.zip")
 
 
 if __name__ == "__main__":

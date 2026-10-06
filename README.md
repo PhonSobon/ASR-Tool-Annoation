@@ -11,12 +11,13 @@ A local web tool for building Khmer speech datasets. Upload a long recording, cu
 - **Cut editor for each crop:**
   - waveform with a time ruler and zoom
   - playhead, play/pause, and the current word highlighted during playback
-  - recognized words placed on the timeline using CTC alignment timestamps
+  - recognized words placed on the timeline using CTC alignment timestamps, split into real Khmer words with [khmercut](https://github.com/seanghay/khmercut)
   - cuts between words (click ┊), at the playhead (**S**), or automatically at pauses
   - drag cut lines to adjust them; double-click a line to remove it
   - keep or drop each part, so noise and silence can be trimmed
   - each new part takes its share of the recognized text
-- **Export:** a ZIP with `wavs/` and `metadata.csv` (`file, start, end, text`, UTF-8 with BOM so Excel shows Khmer correctly).
+- **Khmer word segmentation:** every crop shows its text split into words (khmercut), and the export includes it as `text_segmented`.
+- **Export:** a ZIP containing one folder, named after the uploaded file, with `wavs/` and a single `metadata.json` (see [Export format](#export-format)).
 
 ## Setup
 
@@ -53,7 +54,7 @@ Open http://127.0.0.1:5000, then:
 1. Choose an audio file and a cut length, then click **Upload & Cut**.
 2. Pick an engine and click **Auto Recognition**. Crops are transcribed one by one.
 3. Correct the text in each box. Click **✂ Edit cut** on any crop to split or trim it, then **✓ Apply cut**.
-4. Click **Export ZIP**.
+4. Click **Export ZIP (folder + JSON)**.
 
 ### Cut editor controls
 
@@ -70,6 +71,33 @@ Open http://127.0.0.1:5000, then:
 | Drop a part | Untick **keep** in the parts list |
 
 Word timings come only from the local Omnilingual model. Gemini results can still be cut, but without word positions.
+
+### Export format
+
+```
+<audio name>/
+├── wavs/
+│   ├── <audio name>_crop_0001.wav
+│   ├── <audio name>_crop_0002.wav
+│   └── ...
+└── metadata.json
+```
+
+`metadata.json` is a UTF-8 list with one entry per crop. `start`/`end` are seconds in the original recording, and `text_segmented` is generated from the final (edited) text:
+
+```json
+[
+  {
+    "id": "news_crop_0001",
+    "file": "wavs/news_crop_0001.wav",
+    "start": 0.0,
+    "end": 8.0,
+    "duration": 8.0,
+    "text": "សូមគោរពជូនលោកប្រធានការិយាល័យ",
+    "text_segmented": "សូម គោរព ជូន លោក ប្រធាន ការិយាល័យ"
+  }
+]
+```
 
 ## Project layout
 
@@ -109,6 +137,7 @@ The official inference code depends on [fairseq2](https://github.com/facebookres
 - **Meta Omnilingual ASR** (base encoder `omniASR_CTC_300M`): https://github.com/facebookresearch/omnilingual-asr
 - **fairseq2** (Meta's sequence modeling toolkit the original model is built on): https://github.com/facebookresearch/fairseq2
 - **Google Gemini API** (optional cloud engine): https://ai.google.dev/gemini-api/docs
+- **khmercut** (Khmer word segmentation, by Seanghay Yath): https://github.com/seanghay/khmercut
 
 ### Papers
 - Baevski, A., Zhou, H., Mohamed, A., & Auli, M. (2020). *wav2vec 2.0: A Framework for Self-Supervised Learning of Speech Representations.* NeurIPS 2020. https://arxiv.org/abs/2006.11477
@@ -117,7 +146,7 @@ The official inference code depends on [fairseq2](https://github.com/facebookres
 - Meta AI Omnilingual ASR team (2025). *Omnilingual ASR: Open-Source Multilingual Speech Recognition for 1600+ Languages.* https://ai.meta.com/research/publications/omnilingual-asr-open-source-multilingual-speech-recognition-for-1600-languages/
 
 ### Libraries
-[Flask](https://flask.palletsprojects.com/) · [PyTorch](https://pytorch.org/) · [safetensors](https://github.com/huggingface/safetensors) · [huggingface_hub](https://github.com/huggingface/huggingface_hub) · [pydub](https://github.com/jiaaro/pydub) · [NumPy](https://numpy.org/) · [Requests](https://requests.readthedocs.io/) · [Noto Sans Khmer](https://fonts.google.com/noto/specimen/Noto+Sans+Khmer)
+[Flask](https://flask.palletsprojects.com/) · [khmercut](https://github.com/seanghay/khmercut) · [PyTorch](https://pytorch.org/) · [safetensors](https://github.com/huggingface/safetensors) · [huggingface_hub](https://github.com/huggingface/huggingface_hub) · [pydub](https://github.com/jiaaro/pydub) · [NumPy](https://numpy.org/) · [Requests](https://requests.readthedocs.io/) · [Noto Sans Khmer](https://fonts.google.com/noto/specimen/Noto+Sans+Khmer)
 
 ## Acknowledgements
 
