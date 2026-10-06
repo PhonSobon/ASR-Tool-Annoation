@@ -1,0 +1,18 @@
+{
+  "asset": "omniASR_CTC_300M_local",
+  "vocab_size": 2233,
+  "encoder_dim": 1024,
+  "final_dropout": 0.1,
+  "freeze_feature_extractor": true,
+  "freeze_encoder": false,
+  "freeze_bottom_layers": 0,
+  "freeze_encoder_steps": 0,
+  "gradient_checkpointing": false,
+  "layerdrop": 0.05,
+  "self_cond_layers": [
+    8,
+    16
+  ],
+  "self_cond_weight": 0.3,
+  "self_cond_fb_scale": 0.1
+}

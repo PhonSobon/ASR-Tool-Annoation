@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Uploaded audio and generated crops
+data/
+
+# Model weights are too big for GitHub (>100 MB) - see models/Omnilingual-ASR-Khm/DOWNLOAD.txt
+models/**/*.safetensors
+models/**/.cache/
+models/**/.gitattributes

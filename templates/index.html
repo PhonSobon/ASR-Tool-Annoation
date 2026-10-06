@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Khmer ASR Tool</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --text:#1d2330; --muted:#6b7280; --border:#e3e6eb;
+          --primary:#2563eb; --ok:#16a34a; --err:#dc2626; --run:#d97706; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Noto Sans Khmer",system-ui,sans-serif; background:var(--bg); color:var(--text); }
+  .wrap { max-width:1000px; margin:0 auto; padding:20px 16px 60px; }
+  h1 { font-size:22px; margin:0 0 16px; }
+  .panel { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
+  .row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
+  label.f { display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--muted); }
+  input, select, textarea { font:inherit; padding:8px 10px; border:1px solid var(--border); border-radius:6px; background:#fff; color:var(--text); }
+  button { font:inherit; padding:9px 16px; border:0; border-radius:6px; cursor:pointer; background:var(--primary); color:#fff; font-weight:600; }
+  button.sec { background:#e5e7eb; color:var(--text); }
+  button.stop { background:var(--err); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .status { font-size:14px; color:var(--muted); margin-top:10px; }
+  .bar { height:8px; background:#e5e7eb; border-radius:4px; overflow:hidden; margin-top:8px; }
+  .bar > div { height:100%; width:0; background:var(--ok); transition:width .3s; }
+  .crop { background:var(--card); border:1px solid var(--border); border-left:5px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px; }
+  .crop.running { border-left-color:var(--run); box-shadow:0 0 0 2px #fde68a; }
+  .crop.done { border-left-color:var(--ok); }
+  .crop.error { border-left-color:var(--err); }
+  .crop-head { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:8px; }
+  .crop-head b { font-size:15px; }
+  .time { font-size:12px; color:var(--muted); }
+  .badge { font-size:12px; padding:2px 8px; border-radius:10px; background:#eef0f3; color:var(--muted); }
+  .running .badge { background:#fef3c7; color:var(--run); }
+  .done .badge { background:#dcfce7; color:var(--ok); }
+  .error .badge { background:#fee2e2; color:var(--err); }
+  .crop audio { height:32px; flex:1; min-width:200px; }
+  .crop textarea { width:100%; min-height:60px; resize:vertical; font-size:16px; line-height:1.7; }
+  .errmsg { color:var(--err); font-size:13px; margin-top:4px; }
+  .small { padding:4px 10px; font-size:12px; }
+  /* cut editor */
+  .editor { margin-top:10px; padding:10px; background:#f8fafc; border:1px solid var(--border); border-radius:8px; outline:none; }
+  .editor:focus-within { border-color:#93c5fd; }
+  .ed-bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px; }
+  .ed-bar .clock { font-variant-numeric:tabular-nums; font-size:13px; color:var(--muted); min-width:118px; }
+  .ed-bar .sep { width:1px; height:22px; background:var(--border); }
+  .ed-bar input { width:58px; padding:4px 6px; }
+  .btnPlay { min-width:86px; }
+  .wave-scroll { overflow-x:auto; overflow-y:hidden; background:#fff; border:1px solid var(--border); border-radius:6px; }
+  .wave-box { position:relative; height:140px; }
+  .wave-box canvas { position:absolute; left:0; top:0; height:140px; display:block; }
+  .wave-box canvas.ov { cursor:default; }
+  .hint { font-size:12px; color:var(--muted); margin:6px 0; }
+  .hint kbd { font:11px system-ui; background:#fff; border:1px solid var(--border); border-bottom-width:2px; border-radius:4px; padding:0 4px; }
+  .words { font-size:16px; line-height:2.1; margin:8px 0; }
+  .words .w { padding:2px 4px; border-radius:4px; cursor:pointer; }
+  .words .w.s0 { background:#dcfce7; }
+  .words .w.s1 { background:#dbeafe; }
+  .words .w.drop { background:#fee2e2; color:#991b1b; text-decoration:line-through; }
+  .words .w:hover { outline:1px solid var(--primary); }
+  .words .w.now { background:#fde68a; outline:2px solid var(--run); }
+  .words .gap { cursor:pointer; color:#cbd5e1; padding:0 2px; font-weight:700; }
+  .words .gap:hover { color:var(--err); }
+  .words .gap.on { color:var(--err); }
+  .seg { display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:14px; padding:5px 0; border-top:1px solid var(--border); }
+  .seg.drop { opacity:.5; }
+  .seg .segtext { flex:1; min-width:200px; }
+  .seg label { font-size:13px; display:flex; gap:4px; align-items:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎙️ Khmer ASR Tool — Auto Cut + Gemini Recognition</h1>
+
+  <div class="panel">
+    <div class="row">
+      <label class="f">Audio file
+        <input type="file" id="audio" accept="audio/*,video/*">
+      </label>
+      <label class="f">Cut length
+        <select id="chunk">
+          <option value="10">10 s</option>
+          <option value="20">20 s</option>
+          <option value="30" selected>30 s</option>
+          <option value="custom">Custom…</option>
+        </select>
+      </label>
+      <label class="f" id="customWrap" style="display:none">Seconds
+        <input type="number" id="customSec" value="15" min="1" style="width:90px">
+      </label>
+      <button id="btnCut">✂️ Upload &amp; Cut</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <label class="f">Engine
+        <select id="engine">
+          <option value="omni" selected>Local Omnilingual-ASR Khmer</option>
+          <option value="gemini">Gemini (API key)</option>
+        </select>
+      </label>
+      <label class="f">Language
+        <select id="language">
+          <option value="Khmer" selected>Khmer</option>
+          <option value="English">English</option>
+        </select>
+      </label>
+    </div>
+    <div class="row" id="omniOpts" style="margin-top:12px">
+      <label class="f" style="flex:1;min-width:260px">Model (Hugging Face repo id or local folder)
+        <input type="text" id="omniModel" value="{{ omni_model }}">
+      </label>
+    </div>
+    <div class="row" id="geminiOpts" style="margin-top:12px;display:none">
+      <label class="f" style="flex:1;min-width:260px">Gemini API key
+        <input type="password" id="apiKey" placeholder="AIza...">
+      </label>
+      <label class="f">Model
+        <input type="text" id="model" value="gemini-2.5-flash" list="modelList" style="width:220px">
+        <datalist id="modelList"></datalist>
+      </label>
+      <button id="btnModels" class="sec">↻ Load my models</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button id="btnRun" disabled>▶ Auto Recognition</button>
+      <button id="btnStop" class="stop" disabled>■ Stop</button>
+      <button id="btnExport" class="sec" disabled>⬇ Export ZIP (wavs + CSV)</button>
+      <label style="font-size:13px;color:var(--muted)"><input type="checkbox" id="skipDone" checked> Skip crops already done</label>
+    </div>
+    <div class="status" id="status">Upload an audio file to start.</div>
+    <div class="bar"><div id="progress"></div></div>
+  </div>
+
+  <div id="crops"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let session = null;   // {session_id, crops:[...]}
+let stopFlag = false;
+
+// Remember settings in this browser
+try {
+  $("apiKey").value = localStorage.getItem("gemini_key") || "";
+  $("model").value = localStorage.getItem("gemini_model") || $("model").value;
+  $("engine").value = localStorage.getItem("engine") || $("engine").value;
+  const savedModel = localStorage.getItem("omni_model");
+  if (savedModel && savedModel !== "Darayut/Omnilingual-ASR-Khm") $("omniModel").value = savedModel;  // old default -> use local folder
+  if ($("engine").value === "whisper") $("engine").value = "omni";  // old saved setting
+} catch (e) {}
+
+const isGemini = () => $("engine").value === "gemini";
+function showEngine() {
+  $("geminiOpts").style.display = isGemini() ? "" : "none";
+  $("omniOpts").style.display = isGemini() ? "none" : "";
+  try { localStorage.setItem("engine", $("engine").value); } catch (e) {}
+}
+$("engine").onchange = showEngine;
+showEngine();
+
+$("chunk").onchange = () => $("customWrap").style.display = $("chunk").value === "custom" ? "" : "none";
+
+const fmt = s => { const m = Math.floor(s / 60), x = (s % 60).toFixed(1); return `${m}:${x.padStart(4, "0")}`; };
+
+function setStatus(t) { $("status").textContent = t; }
+function updateProgress() {
+  if (!session) return;
+  const done = session.crops.filter(c => c.state === "done").length;
+  $("progress").style.width = (100 * done / session.crops.length) + "%";
+}
+
+// ---------- Upload & cut ----------
+$("btnCut").onclick = async () => {
+  const f = $("audio").files[0];
+  if (!f) return alert("Please choose an audio file.");
+  const sec = $("chunk").value === "custom" ? $("customSec").value : $("chunk").value;
+  const fd = new FormData();
+  fd.append("audio", f);
+  fd.append("chunk_seconds", sec);
+  $("btnCut").disabled = true;
+  setStatus("Uploading and cutting audio…");
+  try {
+    const r = await fetch("/upload", { method: "POST", body: fd });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error);
+    session = j;
+    session.crops.forEach(c => { c.text = ""; c.state = "pending"; });
+    renderCrops();
+    setStatus(`Cut into ${j.crops.length} crops of ${sec}s (total ${fmt(j.duration)}). Click Auto Recognition.`);
+    $("btnRun").disabled = false;
+    $("btnExport").disabled = false;
+  } catch (e) {
+    setStatus("Error: " + e.message);
+  } finally {
+    $("btnCut").disabled = false;
+    updateProgress();
+  }
+};
+
+function renderCrops() {
+  const box = $("crops");
+  box.innerHTML = "";
+  session.crops.forEach((c, i) => {
+    const el = document.createElement("div");
+    el.className = "crop";
+    el.id = "crop-" + i;
+    el.innerHTML = `
+      <div class="crop-head">
+        <b>Crop ${c.index}</b>
+        <span class="time">${fmt(c.start)} → ${fmt(c.end)}</span>
+        <span class="badge">pending</span>
+        <audio controls preload="none" src="${cropUrl(c)}"></audio>
+        <button class="sec small btnRedo">↻ Redo</button>
+        <button class="sec small btnEdit">✂ Edit cut</button>
+      </div>
+      <textarea placeholder="Text will appear here…"></textarea>
+      <div class="errmsg"></div>
+      <div class="editor" tabindex="0" style="display:none">
+        <div class="ed-bar">
+          <button class="small btnPlay" title="Play / pause (Space)">▶ Play</button>
+          <span class="clock">0:00.00 / 0:00.00</span>
+          <span class="sep"></span>
+          <button class="sec small btnSplit" title="Cut at the orange playhead (S)">✂ Split at playhead</button>
+          <button class="sec small btnPauses" title="Cut at every silence between words at least this long">✂ Cut at pauses ≥</button>
+          <input type="number" class="pauseSec" value="0.5" min="0.1" step="0.1"><span class="hint">s</span>
+          <button class="sec small btnClear">Clear cuts</button>
+          <span class="sep"></span>
+          <button class="sec small btnZoomOut" title="Zoom out (Ctrl + wheel)">Zoom −</button>
+          <button class="sec small btnZoomIn" title="Zoom in (Ctrl + wheel)">Zoom +</button>
+          <span style="flex:1"></span>
+          <button class="small btnApply">✓ Apply cut</button>
+        </div>
+        <div class="wave-scroll"><div class="wave-box"><canvas class="base"></canvas><canvas class="ov"></canvas></div></div>
+        <div class="hint">Click = move playhead · drag a red cut line to move it · double-click a cut line to remove it ·
+          <kbd>Space</kbd> play/pause · <kbd>S</kbd> split at playhead · <kbd>←</kbd><kbd>→</kbd> step 0.1 s (Shift: 1 s)</div>
+        <div class="words"></div>
+        <div class="segs"></div>
+      </div>`;
+    el.querySelector("textarea").oninput = e => { c.text = e.target.value; };
+    el.querySelector(".btnRedo").onclick = () => recognizeOne(i);
+    el.querySelector(".btnEdit").onclick = () => toggleEditor(i);
+    const ed = el.querySelector(".editor"), ov = el.querySelector("canvas.ov");
+    ed.onkeydown = e => editorKey(i, e);
+    ov.onmousedown = e => waveDown(i, e);
+    ov.onmousemove = e => waveHover(i, e);
+    ov.onmouseleave = () => { V(c).hover = null; drawOverlay(i); };
+    ov.ondblclick = e => { const k = cutNear(i, e.clientX); if (k >= 0) removeCut(i, k); };
+    ov.addEventListener("wheel", e => { if (e.ctrlKey) { e.preventDefault(); zoomBy(i, e.deltaY < 0 ? 2 : 0.5); } }, { passive: false });
+    el.querySelector(".btnPlay").onclick = () => togglePlay(i);
+    el.querySelector(".btnSplit").onclick = () => addCut(i, V(c).pos);
+    el.querySelector(".btnPauses").onclick = () => cutAtPauses(i, +el.querySelector(".pauseSec").value || 0.5);
+    el.querySelector(".btnClear").onclick = () => { c.cuts = []; c.drop = []; renderEditor(i); };
+    el.querySelector(".btnZoomOut").onclick = () => zoomBy(i, 0.5);
+    el.querySelector(".btnZoomIn").onclick = () => zoomBy(i, 2);
+    el.querySelector(".btnApply").onclick = () => applyCut(i);
+    box.appendChild(el);
+  });
+}
+
+function paint(i) {
+  const c = session.crops[i], el = $("crop-" + i);
+  el.className = "crop " + c.state;
+  el.querySelector(".badge").textContent = c.state;
+  el.querySelector("textarea").value = c.text;
+  el.querySelector(".errmsg").textContent = c.error || "";
+  if (editorOpen(i)) renderEditor(i);
+}
+
+// ---------- Cut editor: waveform + word timings from recognition ----------
+const cropUrl = c => `/chunks/${session.session_id}/${encodeURIComponent(c.file)}`;
+const msKey = t => Math.round(t * 1000);   // a part is identified by its start time
+const wavCache = new Map();                // crop url -> {peaks, n, dur, max}
+const views = new Map();                   // crop url -> {zoom, pos, hover, drag}
+const player = new Audio();
+let actx = null, play = null;              // play = {i, end} while the editor is playing
+let running = false;
+const WAVE_H = 140;
+
+const editorOpen = i => { const el = $("crop-" + i); return !!el && el.querySelector(".editor").style.display !== "none"; };
+const wave = c => wavCache.get(cropUrl(c));
+const V = c => {
+  const k = cropUrl(c);
+  if (!views.has(k)) views.set(k, { zoom: 1, pos: 0, hover: null, drag: false });
+  return views.get(k);
+};
+const fmt2 = s => `${Math.floor(s / 60)}:${(s % 60).toFixed(2).padStart(5, "0")}`;
+
+async function loadWave(c) {
+  if (wave(c)) return wave(c);
+  const buf = await (await fetch(cropUrl(c))).arrayBuffer();
+  actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+  const d = (await actx.decodeAudioData(buf)).getChannelData(0);
+  const per = Math.max(1, Math.floor(d.length / 20000)), n = Math.ceil(d.length / per);
+  const peaks = new Float32Array(n * 2);
+  let max = 0.01;
+  for (let b = 0; b < n; b++) {
+    let lo = 0, hi = 0;
+    for (let k = b * per, e = Math.min(d.length, k + per); k < e; k++) { if (d[k] < lo) lo = d[k]; if (d[k] > hi) hi = d[k]; }
+    peaks[2 * b] = lo; peaks[2 * b + 1] = hi;
+    max = Math.max(max, hi, -lo);
+  }
+  const w = { peaks, n, max, dur: d.length / actx.sampleRate };
+  wavCache.set(cropUrl(c), w);
+  return w;
+}
+
+async function toggleEditor(i) {
+  const c = session.crops[i], box = $("crop-" + i).querySelector(".editor");
+  if (editorOpen(i)) { box.style.display = "none"; if (play && play.i === i) player.pause(); return; }
+  c.cuts = c.cuts || []; c.drop = c.drop || [];
+  box.style.display = "";
+  box.querySelector(".words").textContent = "Loading audio…";
+  try { await loadWave(c); } catch (e) { box.querySelector(".words").textContent = "Cannot load audio: " + e.message; return; }
+  renderEditor(i);
+  box.focus({ preventScroll: true });
+}
+
+// Parts between cuts; each gets the words whose middle falls inside it
+function segments(c, dur) {
+  const pts = [0, ...c.cuts.filter(t => t > 0.05 && t < dur - 0.05).sort((a, b) => a - b), dur];
+  const segs = [];
+  for (let k = 0; k < pts.length - 1; k++) {
+    const s = pts[k], e = pts[k + 1];
+    const ws = (c.words || []).filter(w => { const m = (w.start + w.end) / 2; return m >= s && m < e; });
+    const text = ws.map((w, j) => (j && w.sp ? " " : "") + w.text).join("");
+    segs.push({ s, e, ws, text, drop: c.drop.includes(msKey(s)) });
+  }
+  return segs;
+}
+
+const gapTimes = c => (c.words || []).slice(1).map((w, j) => (c.words[j].end + w.start) / 2);
+
+function snapToGap(c, t, tol) {
+  let best = t, bd = tol;
+  gapTimes(c).forEach(g => { const d = Math.abs(g - t); if (d < bd) { bd = d; best = g; } });
+  return best;
+}
+
+function addCut(i, t) {
+  const c = session.crops[i], W = wave(c);
+  if (!W || t < 0.05 || t > W.dur - 0.05 || c.cuts.some(x => Math.abs(x - t) < 0.05)) return;
+  c.cuts.push(t);
+  renderEditor(i);
+}
+
+function removeCut(i, k) {
+  const c = session.crops[i], t = c.cuts.splice(k, 1)[0];
+  c.drop = c.drop.filter(x => x !== msKey(t));   // the part after it merges into the one before
+  renderEditor(i);
+}
+
+function toggleCut(i, t) {
+  const k = session.crops[i].cuts.findIndex(x => Math.abs(x - t) < 0.06);
+  if (k >= 0) removeCut(i, k); else addCut(i, t);
+}
+
+function cutAtPauses(i, minGap) {
+  const c = session.crops[i];
+  if (!c.words || c.words.length < 2) return alert("No word timings yet — recognize this crop with the local Omnilingual model first.");
+  c.words.slice(1).forEach((w, j) => {
+    const g = (c.words[j].end + w.start) / 2;
+    if (w.start - c.words[j].end >= minGap && !c.cuts.some(x => Math.abs(x - g) < 0.06)) c.cuts.push(g);
+  });
+  renderEditor(i);
+}
+
+// ----- mouse / keyboard on the waveform -----
+const ovRect = i => $("crop-" + i).querySelector("canvas.ov").getBoundingClientRect();
+
+function timeAt(i, clientX) {
+  const W = wave(session.crops[i]), r = ovRect(i);
+  return Math.min(W.dur, Math.max(0, (clientX - r.left) / r.width * W.dur));
+}
+
+function cutNear(i, clientX) {   // index of the cut line within 6 px of the mouse, or -1
+  const c = session.crops[i], W = wave(c), r = ovRect(i);
+  let best = -1, bd = 6;
+  c.cuts.forEach((t, k) => { const d = Math.abs(r.left + t / W.dur * r.width - clientX); if (d < bd) { bd = d; best = k; } });
+  return best;
+}
+
+function waveDown(i, e) {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  $("crop-" + i).querySelector(".editor").focus({ preventScroll: true });
+  const c = session.crops[i], v = V(c), W = wave(c), k = cutNear(i, e.clientX);
+  if (k < 0) return seek(i, timeAt(i, e.clientX));
+  // drag a cut line; it snaps to word gaps (hold Alt for free placement)
+  const old = c.cuts[k], wasDropped = c.drop.includes(msKey(old));
+  v.drag = true;
+  const move = ev => {
+    let t = timeAt(i, ev.clientX);
+    if (!ev.altKey) t = snapToGap(c, t, 8 / ovRect(i).width * W.dur);
+    c.cuts[k] = Math.min(W.dur - 0.05, Math.max(0.05, t));
+    v.hover = c.cuts[k];
+    drawBase(i); drawOverlay(i);
+  };
+  const up = () => {
+    window.removeEventListener("mousemove", move);
+    window.removeEventListener("mouseup", up);
+    v.drag = false;
+    c.drop = c.drop.filter(x => x !== msKey(old));
+    if (wasDropped) c.drop.push(msKey(c.cuts[k]));
+    renderEditor(i);
+  };
+  window.addEventListener("mousemove", move);
+  window.addEventListener("mouseup", up);
+}
+
+function waveHover(i, e) {
+  const v = V(session.crops[i]);
+  if (v.drag) return;
+  v.hover = timeAt(i, e.clientX);
+  e.currentTarget.style.cursor = cutNear(i, e.clientX) >= 0 ? "ew-resize" : "default";
+  drawOverlay(i);
+}
+
+function editorKey(i, e) {
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || !wave(session.crops[i])) return;
+  const v = V(session.crops[i]);
+  if (e.code === "Space") { e.preventDefault(); togglePlay(i); }
+  else if (e.key === "s" || e.key === "S") { e.preventDefault(); addCut(i, v.pos); }
+  else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    e.preventDefault();
+    seek(i, v.pos + (e.key === "ArrowLeft" ? -1 : 1) * (e.shiftKey ? 1 : 0.1));
+  }
+}
+
+function zoomBy(i, f) {
+  const c = session.crops[i], v = V(c), W = wave(c), sc = $("crop-" + i).querySelector(".wave-scroll");
+  if (!W) return;
+  const maxZoom = Math.max(1, Math.floor(30000 / (sc.clientWidth * (window.devicePixelRatio || 1))));
+  v.zoom = Math.min(maxZoom, 32, Math.max(1, v.zoom * f));
+  drawBase(i); drawOverlay(i);
+  sc.scrollLeft = v.pos / W.dur * sc.scrollWidth - sc.clientWidth / 2;   // keep the playhead in view
+}
+
+// ----- playback -----
+function setPlaying(i, on) {
+  const b = $("crop-" + i) && $("crop-" + i).querySelector(".btnPlay");
+  if (b) b.textContent = on ? "⏸ Pause" : "▶ Play";
+}
+
+function seek(i, t) {
+  const c = session.crops[i], v = V(c), W = wave(c);
+  v.pos = Math.min(W.dur, Math.max(0, t));
+  if (play && play.i === i) { player.currentTime = v.pos; play.end = W.dur; }
+  drawOverlay(i); showClock(i);
+}
+
+function togglePlay(i) {
+  const c = session.crops[i], v = V(c), W = wave(c);
+  if (play && play.i === i) { player.pause(); return; }   // the tick loop tidies up
+  playRange(i, v.pos >= W.dur - 0.05 ? 0 : v.pos, W.dur);
+}
+
+async function playRange(i, s, e) {
+  const c = session.crops[i], v = V(c), url = new URL(cropUrl(c), location.href).href;
+  if (play) { const old = play.i; play = null; player.pause(); setPlaying(old, false); markWord(old); }
+  if (player.src !== url) {
+    player.src = url;
+    await new Promise(r => player.addEventListener("loadedmetadata", r, { once: true }));
+  }
+  player.currentTime = s;
+  const me = play = { i, end: e };
+  setPlaying(i, true);
+  try { await player.play(); } catch (err) { if (play === me) play = null; setPlaying(i, false); return; }
+  const tick = () => {
+    if (play !== me) return;
+    v.pos = player.currentTime;
+    const done = player.paused || v.pos >= me.end;
+    if (done) { player.pause(); play = null; setPlaying(i, false); }
+    else followPlayhead(i);
+    markWord(i); drawOverlay(i); showClock(i);
+    if (!done) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+function followPlayhead(i) {   // scroll a zoomed waveform so the playhead stays visible
+  const c = session.crops[i], sc = $("crop-" + i).querySelector(".wave-scroll");
+  const x = V(c).pos / wave(c).dur * sc.scrollWidth;
+  if (x < sc.scrollLeft || x > sc.scrollLeft + sc.clientWidth - 30) sc.scrollLeft = x - 30;
+}
+
+function markWord(i) {   // highlight the word under the playhead while playing
+  const c = session.crops[i], el = $("crop-" + i);
+  if (!el || !c || !c.words) return;
+  const pos = V(c).pos, on = play && play.i === i;
+  el.querySelectorAll(".words .w").forEach(sp => {
+    const w = c.words[+sp.dataset.j];
+    sp.classList.toggle("now", !!on && pos >= w.start && pos < w.end);
+  });
+}
+
+function showClock(i) {
+  const c = session.crops[i], W = wave(c);
+  if (W) $("crop-" + i).querySelector(".clock").textContent = `${fmt2(V(c).pos)} / ${fmt2(W.dur)}`;
+}
+
+// ----- drawing: base canvas (ruler, parts, waveform, words, cuts) + overlay (hover, playhead) -----
+function drawBase(i) {
+  const c = session.crops[i], W = c && wave(c);
+  if (!W || !editorOpen(i)) return;
+  const el = $("crop-" + i), sc = el.querySelector(".wave-scroll"), v = V(c), dpr = window.devicePixelRatio || 1;
+  if (!sc.clientWidth) return;
+  const w = Math.round(sc.clientWidth * v.zoom), h = WAVE_H;
+  el.querySelector(".wave-box").style.width = w + "px";
+  el.querySelectorAll(".wave-box canvas").forEach(cv => { cv.style.width = w + "px"; cv.width = w * dpr; cv.height = h * dpr; });
+  const g = el.querySelector("canvas.base").getContext("2d");
+  g.scale(dpr, dpr);
+  const X = t => t / W.dur * w, top = 18, bot = h - 10, mid = (top + bot) / 2, amp = (bot - top) / 2 / W.max;
+
+  segments(c, W.dur).forEach((sg, k) => {   // part shading matches the word colours below
+    g.fillStyle = sg.drop ? "rgba(220,38,38,.13)" : k % 2 ? "rgba(37,99,235,.07)" : "rgba(22,163,74,.07)";
+    g.fillRect(X(sg.s), top, X(sg.e) - X(sg.s), bot - top);
+  });
+
+  // time ruler
+  g.fillStyle = "#f1f5f9"; g.fillRect(0, 0, w, 16);
+  g.fillStyle = "#e2e8f0"; g.fillRect(0, 16, w, 1);
+  g.font = "10px system-ui, sans-serif";
+  const pps = w / W.dur, step = [0.1, 0.2, 0.5, 1, 2, 5, 10, 30].find(s => s * pps >= 70) || 60;
+  for (let n = 0; n * step <= W.dur + 1e-6; n++) {
+    const t = n * step, x = Math.round(X(t)) + 0.5;
+    g.fillStyle = "#94a3b8"; g.fillRect(x, 9, 1, 7);
+    for (let m = 1; m < 5; m++) g.fillRect(Math.round(X(t + m * step / 5)), 13, 1, 3);
+    g.fillStyle = "#475569"; g.fillText(t.toFixed(step < 1 ? 1 : 0) + "s", x + 3, 10);
+  }
+
+  g.fillStyle = "#e2e8f0"; g.fillRect(0, Math.round(mid), w, 1);
+  g.fillStyle = "#475569";
+  for (let x = 0; x < w; x++) {
+    const b0 = Math.floor(x / w * W.n), b1 = Math.max(b0 + 1, Math.floor((x + 1) / w * W.n));
+    let lo = 0, hi = 0;
+    for (let b = b0; b < b1 && b < W.n; b++) { lo = Math.min(lo, W.peaks[2 * b]); hi = Math.max(hi, W.peaks[2 * b + 1]); }
+    g.fillRect(x, mid - hi * amp, 1, Math.max(1, (hi - lo) * amp));
+  }
+
+  (c.words || []).forEach((wd, k) => {      // recognized words along the bottom
+    g.fillStyle = k % 2 ? "#93c5fd" : "#3b82f6";
+    g.fillRect(X(wd.start), h - 7, Math.max(2, X(wd.end) - X(wd.start)), 6);
+  });
+
+  c.cuts.forEach(t => {                      // cut lines with a grab handle in the ruler
+    const x = Math.round(X(t));
+    g.fillStyle = "#dc2626";
+    g.fillRect(x - 1, 0, 2, h - 8);
+    g.beginPath(); g.roundRect ? g.roundRect(x - 6, 1, 12, 13, 3) : g.rect(x - 6, 1, 12, 13); g.fill();
+    g.fillStyle = "#fff"; g.fillRect(x - 2, 4, 1, 7); g.fillRect(x + 1, 4, 1, 7);
+  });
+}
+
+function drawOverlay(i) {
+  const c = session.crops[i], W = c && wave(c);
+  if (!W || !editorOpen(i)) return;
+  const cv = $("crop-" + i).querySelector("canvas.ov"), dpr = window.devicePixelRatio || 1, v = V(c);
+  const g = cv.getContext("2d"), w = cv.width / dpr, h = WAVE_H, X = t => t / W.dur * w;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  if (v.hover != null) {
+    const x = Math.round(X(v.hover)), label = v.hover.toFixed(2) + " s";
+    g.fillStyle = "rgba(15,23,42,.35)"; g.fillRect(x, 17, 1, h - 17);
+    g.font = "11px system-ui, sans-serif";
+    const tw = g.measureText(label).width + 8, lx = Math.min(x + 4, w - tw - 2);
+    g.fillStyle = "rgba(15,23,42,.85)"; g.fillRect(lx, 20, tw, 16);
+    g.fillStyle = "#fff"; g.fillText(label, lx + 4, 32);
+  }
+  const x = Math.round(X(v.pos));
+  g.fillStyle = "#d97706";
+  g.fillRect(x - 1, 0, 2, h);
+  g.beginPath(); g.moveTo(x - 6, 0); g.lineTo(x + 6, 0); g.lineTo(x, 8); g.fill();
+}
+
+function renderEditor(i) {
+  const c = session.crops[i], el = $("crop-" + i), W = wave(c);
+  if (!W) return;
+  c.cuts = c.cuts || []; c.drop = c.drop || [];
+  const segs = segments(c, W.dur);
+  const segOf = t => Math.max(0, segs.findIndex(sg => t >= sg.s && t < sg.e));
+
+  const wb = el.querySelector(".words");
+  wb.innerHTML = "";
+  if (!c.words || !c.words.length) {
+    wb.innerHTML = `<span class="hint">No word timings for this crop — recognize it with the local Omnilingual model (↻ Redo) to cut by text. You can still cut with “Split at playhead”.</span>`;
+  }
+  (c.words || []).forEach((wd, j) => {
+    if (j) {
+      const gt = (c.words[j - 1].end + wd.start) / 2, on = c.cuts.some(t => Math.abs(t - gt) < 0.06);
+      const gap = document.createElement("span");
+      gap.className = "gap" + (on ? " on" : "");
+      gap.textContent = on ? "✂" : "┊";
+      gap.title = `${on ? "Remove cut" : "Cut here"} (${gt.toFixed(2)} s)`;
+      gap.onclick = () => toggleCut(i, gt);
+      wb.appendChild(gap);
+    }
+    const k = segOf((wd.start + wd.end) / 2), sp = document.createElement("span");
+    sp.className = "w s" + (k % 2) + (segs[k].drop ? " drop" : "");
+    sp.dataset.j = j;
+    sp.textContent = wd.text;
+    sp.title = `${wd.start.toFixed(2)}–${wd.end.toFixed(2)} s · click to play`;
+    sp.onclick = () => { V(c).pos = wd.start; playRange(i, Math.max(0, wd.start - 0.1), wd.end + 0.1); };
+    wb.appendChild(sp);
+  });
+
+  const sb = el.querySelector(".segs");
+  sb.innerHTML = "";
+  if (segs.length > 1) segs.forEach((sg, k) => {
+    const row = document.createElement("div");
+    row.className = "seg" + (sg.drop ? " drop" : "");
+    row.innerHTML = `<button class="sec small bPlay">▶</button>
+      <label><input type="checkbox" ${sg.drop ? "" : "checked"}> keep</label>
+      <span class="time">Part ${k + 1} · ${sg.s.toFixed(2)}–${sg.e.toFixed(2)} s (${(sg.e - sg.s).toFixed(1)} s)</span>
+      <span class="segtext"></span>
+      ${k ? `<button class="sec small bJoin" title="Remove the cut before this part">⤒ Join with previous</button>` : ""}`;
+    row.querySelector(".segtext").textContent = sg.text;
+    row.querySelector(".bPlay").onclick = () => { V(c).pos = sg.s; playRange(i, sg.s, sg.e); };
+    row.querySelector("input").onchange = e => {
+      c.drop = c.drop.filter(x => x !== msKey(sg.s));
+      if (!e.target.checked) c.drop.push(msKey(sg.s));
+      renderEditor(i);
+    };
+    if (k) row.querySelector(".bJoin").onclick = () => removeCut(i, c.cuts.indexOf(sg.s));
+    sb.appendChild(row);
+  });
+  el.querySelector(".btnApply").disabled = segs.length < 2;
+  drawBase(i); drawOverlay(i); showClock(i); markWord(i);
+}
+
+async function applyCut(i) {
+  if (running) return alert("Wait for Auto Recognition to finish (or press Stop) before cutting.");
+  const c = session.crops[i], W = wavCache.get(cropUrl(c)), segs = segments(c, W.dur);
+  const kept = segs.filter(s => !s.drop);
+  if (!kept.length) return alert("Keep at least one part.");
+  if (c.words && c.text !== c.wordsText &&
+      !confirm("You edited this crop's text by hand. The new parts take their text from the recognition result, so those edits will be lost.\n\nContinue?")) return;
+  player.pause(); play = null;
+  const r = await fetch("/split", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: session.session_id, file: c.file, segments: kept.map(s => ({ start: s.s, end: s.e })) }),
+  });
+  const j = await r.json();
+  if (!r.ok) return alert("Cut failed: " + j.error);
+  const parts = j.crops.map((p, k) => {
+    const sg = kept[p.seg];
+    // without word timings we can't split the text; a single kept part (a trim) keeps it
+    const text = c.words ? sg.text : (kept.length === 1 ? c.text : "");
+    const words = c.words ? sg.ws.map((w, n) => ({ ...w, sp: n ? w.sp : false, start: +(w.start - p.start).toFixed(3), end: +(w.end - p.start).toFixed(3) })) : null;
+    return {
+      index: j.crops.length > 1 ? `${c.index}.${k + 1}` : `${c.index}'`, file: p.file,
+      start: +(c.start + p.start).toFixed(3), end: +(c.start + p.end).toFixed(3),
+      text, words, wordsText: text, state: text ? "done" : "pending", error: "",
+    };
+  });
+  session.crops.splice(i, 1, ...parts);
+  renderCrops();
+  session.crops.forEach((_, k) => paint(k));
+  updateProgress();
+  setStatus(`Crop ${c.index} → ${parts.length} part(s). ${parts.some(p => p.state === "pending") ? "Parts without text are pending — run recognition on them." : ""}`);
+}
+
+window.addEventListener("resize", () => session && session.crops.forEach((_, k) => { drawBase(k); drawOverlay(k); }));
+
+// ---------- Recognize ONE crop ----------
+async function recognizeOne(i) {
+  const c = session.crops[i];
+  const apiKey = $("apiKey").value.trim();
+  if (isGemini() && !apiKey) { alert("Please enter your Gemini API key."); return false; }
+  try {
+    localStorage.setItem("gemini_key", apiKey);
+    localStorage.setItem("gemini_model", $("model").value);
+    localStorage.setItem("omni_model", $("omniModel").value);
+  } catch (e) {}
+
+  c.state = "running"; c.error = "";
+  paint(i);
+  $("crop-" + i).scrollIntoView({ behavior: "smooth", block: "center" });
+  try {
+    const r = await fetch("/transcribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: session.session_id, file: c.file, api_key: apiKey,
+        engine: $("engine").value, omni_model: $("omniModel").value.trim(),
+        model: $("model").value, language: $("language").value,
+      }),
+    });
+    const j = await r.json();
+    if (!r.ok) { const err = new Error(j.error); err.fatal = j.fatal; throw err; }
+    c.text = j.text; c.state = "done";
+    c.words = j.words || null; c.wordsText = j.text;  // word timings (local model only) for the cut editor
+  } catch (e) {
+    c.state = "error"; c.error = e.message;
+    if (e.fatal) c.fatal = true;
+  }
+  paint(i);
+  updateProgress();
+  return c.state === "done";
+}
+
+// ---------- Load models available for this key ----------
+$("btnModels").onclick = async () => {
+  const apiKey = $("apiKey").value.trim();
+  if (!apiKey) return alert("Please enter your Gemini API key.");
+  setStatus("Loading models…");
+  try {
+    const r = await fetch("/models", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ api_key: apiKey }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error);
+    $("modelList").innerHTML = j.models.map(m => `<option value="${m}">`).join("");
+    setStatus(`${j.models.length} models available. Click the Model box to pick one: ${j.models.filter(m => m.includes("flash")).slice(0, 6).join(", ")}…`);
+  } catch (e) {
+    setStatus("Error: " + e.message);
+  }
+};
+
+// ---------- Auto recognition: crop 1 → show text → crop 2 → ... ----------
+$("btnRun").onclick = async () => {
+  if (isGemini() && !$("apiKey").value.trim()) return alert("Please enter your Gemini API key.");
+  stopFlag = false;
+  running = true;
+  $("btnRun").disabled = $("btnCut").disabled = true;
+  $("btnStop").disabled = false;
+  const n = session.crops.length;
+  for (let i = 0; i < n; i++) {
+    if (stopFlag) break;
+    if ($("skipDone").checked && session.crops[i].state === "done") continue;
+    setStatus(`Recognizing crop ${i + 1} / ${n}…`);
+    await recognizeOne(i);   // wait until this crop's text is shown, then go next
+    if (session.crops[i].fatal) {
+      session.crops[i].fatal = false;
+      running = false;
+      $("btnRun").disabled = $("btnCut").disabled = false;
+      $("btnStop").disabled = true;
+      setStatus("Stopped — " + session.crops[i].error +
+        (isGemini() ? "  (check API key / model name, try ↻ Load my models)" : "  (check the model repo id / folder)"));
+      return;
+    }
+  }
+  const done = session.crops.filter(c => c.state === "done").length;
+  const err = session.crops.filter(c => c.state === "error").length;
+  running = false;
+  setStatus(`${stopFlag ? "Stopped" : "Finished"}: ${done}/${n} done${err ? `, ${err} error (click ↻ Redo)` : ""}.`);
+  $("btnRun").disabled = $("btnCut").disabled = false;
+  $("btnStop").disabled = true;
+};
+
+$("btnStop").onclick = () => { stopFlag = true; setStatus("Stopping after current crop…"); };
+
+// ---------- Export ----------
+$("btnExport").onclick = async () => {
+  const r = await fetch("/export", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: session.session_id, crops: session.crops }),
+  });
+  if (!r.ok) return alert("Export failed");
+  const blob = await r.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `asr_${session.session_id}.zip`;
+  a.click();
+};
+</script>
+</body>
+</html>

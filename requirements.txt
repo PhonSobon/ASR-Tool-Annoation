@@ -1,0 +1,7 @@
+flask
+pydub
+requests
+numpy
+torch
+safetensors
+huggingface_hub
