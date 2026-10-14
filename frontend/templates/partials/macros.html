@@ -1,0 +1,4 @@
+{# {{ icon("trash") }} -> an icon from partials/icons.html (decorative: the button text or title says what it does) #}
+{% macro icon(name, cls="") -%}
+<svg class="i {{ cls }}" aria-hidden="true"><use href="#i-{{ name }}"></use></svg>
+{%- endmacro %}

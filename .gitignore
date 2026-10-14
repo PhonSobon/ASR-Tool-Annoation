@@ -11,3 +11,4 @@ data/
 models/**/*.safetensors
 models/**/.cache/
 models/**/.gitattributes
+.pytest_cache/

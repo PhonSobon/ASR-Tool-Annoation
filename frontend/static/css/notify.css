@@ -1,0 +1,24 @@
+/* Notifications (top-right) and the confirm box */
+.notes { position:fixed; top:72px; right:16px; z-index:100; display:flex; flex-direction:column; gap:10px;
+         width:min(380px, calc(100vw - 32px)); pointer-events:none; }
+.note { display:flex; align-items:flex-start; gap:10px; padding:12px 12px 12px 14px; background:#fff; border-radius:8px;
+        border:1px solid var(--border); border-left:4px solid var(--primary); box-shadow:0 8px 24px rgba(15,23,42,.15);
+        font-size:14px; pointer-events:auto; animation:note-in .2s ease-out; }
+.note.out { opacity:0; transform:translateX(16px); transition:opacity .2s, transform .2s; }
+.note-icon { flex:none; width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;
+             color:#fff; background:var(--primary); }
+.note-icon .i { width:14px; height:14px; stroke-width:3; }
+.note-text { flex:1; line-height:1.5; word-break:break-word; white-space:pre-line; }
+.note-x { flex:none; background:none; color:var(--muted); padding:2px; font-weight:400; }
+.note-x .i { width:16px; height:16px; }
+.note-x:hover { color:var(--text); }
+.note.success { border-left-color:var(--ok); } .note.success .note-icon { background:var(--ok); }
+.note.error { border-left-color:var(--err); } .note.error .note-icon { background:var(--err); }
+.note.warn { border-left-color:var(--run); } .note.warn .note-icon { background:var(--run); }
+@keyframes note-in { from { opacity:0; transform:translateX(16px); } to { opacity:1; transform:none; } }
+
+dialog.confirm { width:min(440px, calc(100% - 32px)); border:0; border-radius:10px; padding:22px 24px; box-shadow:0 20px 60px rgba(15,23,42,.3); }
+dialog.confirm::backdrop { background:rgba(15,23,42,.45); }
+dialog.confirm h3 { margin:0 0 8px; font-size:17px; }
+dialog.confirm p { margin:0; font-size:14px; line-height:1.6; white-space:pre-line; color:#374151; }
+.confirm-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }

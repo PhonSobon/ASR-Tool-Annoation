@@ -1,0 +1,195 @@
+{% from "partials/macros.html" import icon %}
+{# One task: "Task Batch List" (packages = crops, Todo / Processed) and the annotation view of one package (static/js/crops.js) #}
+<section id="pageTask" hidden>
+
+  {# ---------- package list ---------- #}
+  <div id="pkgListView">
+    <div class="panel headcard">
+      <div class="task-head">
+        <div>
+          <h2>Task Batch List</h2>
+          <p class="sub" id="taskSub"></p>
+        </div>
+        <button class="sec back" id="btnBackTasks">{{ icon("arrow-left") }} Back</button>
+      </div>
+    </div>
+
+    <div class="panel flat">
+      <div class="filter-bar">
+        <div class="search sm">
+          <input id="fAudio" placeholder="Search by audio name" aria-label="Search by audio name">
+          <button type="button" title="Search" aria-label="Search">{{ icon("search") }}</button>
+        </div>
+        <div class="search sm">
+          <input id="fPkg" placeholder="Search by package ID" aria-label="Search by package ID">
+          <button type="button" title="Search" aria-label="Search">{{ icon("search") }}</button>
+        </div>
+        <select id="fAnnotator" aria-label="Filter by annotator"><option value="">Filter by annotator</option></select>
+        <select id="fInspector" disabled title="Quality inspection is not set up yet"><option>Filter by inspector</option></select>
+        <select id="fAcceptor" disabled title="Acceptance is not set up yet"><option>Filter by acceptor</option></select>
+      </div>
+
+      <div class="pkg-actions">
+        <button class="sec" id="btnClaim" title="Open the next package in Todo">{{ icon("file") }} Claim Package</button>
+        <button class="sec" id="btnRecAll" title="Recognize every package that has no text yet">{{ icon("recognize") }} Recognize all</button>
+        <button class="stop" id="btnRecStop" disabled>{{ icon("stop") }} Stop</button>
+        <button class="sec" id="btnExportTask" title="Download every package of this task as one ZIP">{{ icon("download") }} Export task ZIP</button>
+        <span class="muted" id="taskStatus"></span>
+      </div>
+
+      <div class="crop-tabs" role="tablist" aria-label="Packages">
+        <button type="button" role="tab" data-f="todo" class="on">Todo</button>
+        <button type="button" role="tab" data-f="processed">Processed</button>
+      </div>
+
+      <div class="info-box">
+        <span class="info-i">{{ icon("info") }}</span>
+        <div>
+          <div class="info-title">Duration Stats</div>
+          <div class="info-stats" id="durStats"></div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="pkg-table">
+          <thead><tr>
+            <th>Package Name</th><th>Status</th><th>Annotator</th><th>Quality Inspector</th><th>Acceptor</th>
+            <th>Current Handler</th><th>Create Time</th><th>Update Time</th><th>Action</th>
+          </tr></thead>
+          <tbody id="pkgBody"></tbody>
+        </table>
+        <div class="pkg-empty" id="pkgEmpty" hidden><div class="pkg-empty-icon">{{ icon("inbox", "xl") }}</div>No data</div>
+      </div>
+      <div class="pkg-pager" id="pkgPager"></div>
+    </div>
+  </div>
+
+  {# ---------- annotate one package (static/js/package.js) ---------- #}
+  <div id="pkgWorkView" hidden>
+    <div class="panel pkg-bar">
+      <div class="pkg-bar-row">
+        <button class="sec back" id="btnBackList">{{ icon("arrow-left") }} Back</button>
+        <button class="sec back" id="btnSpec">{{ icon("file") }} Annotation Specification</button>
+        <span class="pkg-id">Package ID: <b id="pkgId"></b></span>
+        <span class="badge" id="pkgState"></span>
+        <span style="flex:1"></span>
+        <span class="muted">Task ID: <span id="pkgTaskId"></span></span>
+      </div>
+      <div class="pkg-bar-row">
+        <span class="muted" id="pkgWhere"></span>
+        <span style="flex:1"></span>
+        <span class="pkg-nav">
+          <button class="sec small" id="pkgPrev" title="Previous package (Ctrl+Up)" aria-label="Previous package">{{ icon("chevron-left") }}</button>
+          <span id="pkgPos"></span>
+          <button class="sec small" id="pkgNext" title="Next package (Ctrl+Down)" aria-label="Next package">{{ icon("chevron-right") }}</button>
+        </span>
+      </div>
+    </div>
+
+    <div id="pkgEditorSlot"></div>
+
+    <div class="panel">
+      <div class="seg-head">
+        <b class="sec-title">Dialogue Segments</b>
+        <span class="muted">Please select a segment first, then cut the audio</span>
+        <select id="fontSize" title="Text size" aria-label="Text size">
+          <option>14px</option><option selected>16px</option><option>18px</option><option>20px</option><option>24px</option>
+        </select>
+        <span style="flex:1"></span>
+        <button class="sec" id="btnRecSegs" title="Recognize every segment of this package that has no text yet">{{ icon("recognize") }} Recognize all segments</button>
+        <button class="sec" id="btnSkipPkg"></button>
+      </div>
+      <div class="table-wrap seg-wrap">
+        <table class="seg-table">
+          <colgroup><col style="width:80px"><col style="width:105px"><col style="width:105px"><col style="width:90px">
+            <col style="width:140px"><col><col><col style="width:130px"></colgroup>
+          <thead><tr>
+            <th class="c">Segment No.</th><th class="c">Start Position</th><th class="c">End Position</th><th class="c">Duration (s)</th>
+            <th class="req">Role</th><th class="req">Annotation Text</th><th class="req">Normalized Text</th><th class="c">Action</th>
+          </tr></thead>
+          <tbody id="segBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <b class="sec-title">Role Information</b>
+      <span class="muted" id="roleFor"></span>
+      <div class="form-grid role-grid">
+        <label class="fld"><span class="req">Role</span>
+          <input id="riRole" list="roles" aria-label="Role of the selected segment"></label>
+        <label class="fld"><span class="req">Age Group</span>
+          <select id="riAge"><option value="">Select&hellip;</option><option>Under 18</option><option>18-35</option>
+            <option>36-50</option><option>51-65</option><option>Over 65</option></select></label>
+        <div class="fld"><span class="req">Gender</span>
+          <div class="radios"><label><input type="radio" name="riGender" value="Male"> Male</label>
+            <label><input type="radio" name="riGender" value="Female"> Female</label></div></div>
+        <div class="fld"><span class="req">Native Speaker</span>
+          <div class="radios"><label><input type="radio" name="riNative" value="Yes"> Yes</label>
+            <label><input type="radio" name="riNative" value="No"> No</label></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <b class="sec-title">Overall Audio Information</b>
+      <span class="muted">Please confirm or modify based on the audio content</span>
+      <div class="form-grid">
+        <label class="fld"><span class="req">Primary Language</span>
+          <select data-info="language"><option value="">Select&hellip;</option><option>Khmer</option><option>English</option>
+            <option>Khmer-English mixed</option><option>Other</option></select></label>
+        <label class="fld"><span class="req">Accent / Dialect</span><input data-info="accent" placeholder="e.g. Phnom Penh"></label>
+        <label class="fld"><span class="req">Industry Domain</span>
+          <select data-info="domain"><option value="">Select&hellip;</option><option>EDU_GOV</option><option>NEWS_MEDIA</option>
+            <option>HEALTH</option><option>FINANCE</option><option>AGRICULTURE</option><option>TECHNOLOGY</option>
+            <option>ENTERTAINMENT</option><option>RELIGION</option><option>DAILY_LIFE</option><option>OTHER</option></select></label>
+        <label class="fld"><span>Sub Domain</span><input data-info="subdomain"></label>
+        <label class="fld"><span class="req">Speech Style</span>
+          <select data-info="style"><option value="">Select&hellip;</option><option>Read</option><option>Spontaneous</option>
+            <option>Conversational</option><option>Broadcast</option><option>Interview</option><option>Lecture</option></select></label>
+        <label class="fld"><span class="req">Speaker Overlap Type</span>
+          <select data-info="overlap"><option value="">Select&hellip;</option><option>Solo monologue</option>
+            <option>Multi-speaker, no overlap</option><option>Multi-speaker, with overlap</option></select></label>
+      </div>
+      <div class="sub-title">Audio Environment and Quality</div>
+      <div class="form-grid">
+        <label class="fld"><span>Background Sound Type</span>
+          <select data-info="background"><option value="">Select&hellip;</option><option>None (clean)</option>
+            <option>Background instrumental</option><option>Background music with vocals</option><option>Ambient noise</option>
+            <option>Crowd / people talking</option><option>Traffic / street</option><option>Other</option></select></label>
+      </div>
+      <div class="sub-title">Special Attributes</div>
+      <div class="form-grid">
+        <div class="fld"><span>Special Challenges</span>
+          <div class="chips" id="riChallenges"></div></div>
+        <label class="fld"><span class="req">Code Switching Present</span>
+          <select data-info="codeSwitch"><option value="">Select&hellip;</option><option>No</option><option>Yes</option></select></label>
+      </div>
+    </div>
+
+    <div class="panel pkg-foot">
+      <span class="muted" id="pkgMissing"></span>
+      <span style="flex:1"></span>
+      <span class="muted" id="cwSave"></span>
+      <button id="pkgDoneNext">Next package {{ icon("arrow-right") }}</button>
+    </div>
+
+    <dialog id="specDialog" class="spec">
+      <h3>Annotation Specification</h3>
+      <ol>
+        <li><b>Listen first.</b> Play the whole package before typing. Use 0.75x speed for fast speech.</li>
+        <li><b>One segment = one speaker turn.</b> If a second person speaks, cut the audio there (S at the playhead, or drag across the waveform) and give each segment its role.</li>
+        <li><b>Write exactly what is said</b> in Khmer script &mdash; no summaries, no grammar corrections. Keep repeated words and false starts.</li>
+        <li><b>Numbers:</b> write them as spoken in the annotation text; the normalized text turns Khmer digits into 0-9 automatically.</li>
+        <li><b>English words</b> spoken inside Khmer stay in Latin letters, and set <i>Code Switching Present</i> to Yes.</li>
+        <li><b>Unclear speech:</b> if a word cannot be understood after three listens, write <code>[unclear]</code>.</li>
+        <li><b>Noise, music only, or no speech:</b> skip the segment ({{ icon("trash") }}) or the whole package.</li>
+        <li><b>Normalized text</b> is made automatically (word-segmented, digits 0-9); edit it only if the segmentation is wrong.</li>
+        <li><b>Role Information</b> describes the speaker of each role (age group, gender, native speaker); <b>Overall Audio Information</b> describes the whole package.</li>
+      </ol>
+      <form method="dialog"><button>Close</button></form>
+    </dialog>
+  </div>
+
+  <datalist id="roles"><option value="Narrator"><option value="Speaker 1"><option value="Speaker 2"><option value="Speaker 3">
+    <option value="Interviewer"><option value="Guest"></datalist>
+</section>

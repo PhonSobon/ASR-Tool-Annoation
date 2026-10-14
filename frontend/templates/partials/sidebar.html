@@ -1,0 +1,12 @@
+{% from "partials/macros.html" import icon %}
+{# Left menu; data-page matches the page ids in static/js/router.js #}
+<nav class="sidebar" id="sidebar" aria-label="Main menu">
+  <div class="nav-group">
+    <button class="nav-head" type="button">{{ icon("dashboard") }} Workbench <span class="caret">{{ icon("chevron-up") }}</span></button>
+    <a class="nav-item" href="#/tasks" data-page="tasks">My Tasks</a>
+  </div>
+  <div class="nav-group">
+    <button class="nav-head" type="button">{{ icon("mic") }} Audio Annotation <span class="caret">{{ icon("chevron-up") }}</span></button>
+    <a class="nav-item" href="#/upload" data-page="upload">Upload &amp; Crop</a>
+  </div>
+</nav>

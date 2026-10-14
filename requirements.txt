@@ -1,6 +1,5 @@
 flask
 pydub
-requests
 numpy
 torch
 safetensors

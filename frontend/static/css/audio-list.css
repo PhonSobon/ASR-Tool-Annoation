@@ -1,0 +1,22 @@
+/* Upload & Crop audio list: one row per file with a push checkbox and a waveform thumbnail */
+.audio-list { display:flex; flex-direction:column; gap:8px; }
+.audio-row { display:flex; align-items:center; gap:14px; padding:8px 12px; border:1px solid var(--border); border-radius:8px;
+             background:#fff; cursor:pointer; transition:border-color .15s, background .15s; }
+.audio-row:hover, .audio-row:focus-visible { border-color:#93c5fd; outline:0; }
+.audio-row.on { border-color:var(--primary); background:#eff6ff; box-shadow:inset 4px 0 0 var(--primary); }
+.audio-row.uploading { cursor:default; opacity:.8; }
+.audio-row.failed { border-color:#fecaca; background:#fef2f2; cursor:default; }
+.ar-pick { flex:none; width:18px; height:18px; accent-color:var(--primary); cursor:pointer; }
+.ar-thumb { flex:none; width:220px; height:44px; border-radius:4px; background:#f8fafc; }
+.ar-main { flex:1; min-width:0; }
+.ar-name { font-weight:600; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ar-info { display:flex; flex-wrap:wrap; gap:4px 10px; align-items:center; margin-top:4px; font-size:12px; color:var(--muted); }
+.ar-info .bar { width:120px; margin:0; }
+.pill.warn { background:#fef3c7; color:#92400e; }
+.ar-del { flex:none; background:none; color:var(--muted); padding:4px 8px; font-weight:400; }
+.ar-del:hover { color:var(--err); }
+.list-empty { color:var(--muted); font-size:13px; padding:14px; text-align:center; border:1px dashed var(--border); border-radius:8px; }
+@media (max-width:640px) {
+  .audio-row { flex-wrap:wrap; }
+  .ar-thumb { width:100%; }
+}

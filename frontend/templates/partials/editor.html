@@ -1,0 +1,37 @@
+{% from "partials/macros.html" import icon %}
+{# Cut editor: waveform, playback and cut tools. Lives on Upload & Crop; the package page moves it into its own slot. #}
+<div id="editorArea" hidden>
+  <div class="panel wavepanel" id="wavePanel">
+    <div class="wave-head">
+      <b id="edName"></b>
+      <span class="pill dur" id="edDur"></span>
+      <span class="muted" id="edInfo"></span>
+    </div>
+    <div class="wavebox" id="waveBox"><canvas id="wave"></canvas></div>
+    <div class="hbar" id="hbar"><div id="spacer"></div></div>
+    <div class="controls">
+      <span class="clock" id="clock">00:00.000/00:00.000</span>
+      <button class="icon" id="btnPrev" title="Previous segment (Up arrow)" aria-label="Previous segment">{{ icon("skip-back") }}</button>
+      <button class="icon" id="btnPlay" title="Play / pause (Space, or Ctrl+Enter while typing)" aria-label="Play / pause">{{ icon("play") }}</button>
+      <button class="icon" id="btnNext" title="Next segment (Down arrow)" aria-label="Next segment">{{ icon("skip-forward") }}</button>
+      <button class="icon" id="btnUndo" title="Undo cut / merge / move (Ctrl+Z)" aria-label="Undo">{{ icon("undo") }}</button>
+      <button class="icon" id="btnRedo" title="Redo (Ctrl+Y)" aria-label="Redo">{{ icon("redo") }}</button>
+      <span class="sep"></span>
+      <button class="small" id="btnCutHere" title="Cut the selected segment at the playhead (S)">{{ icon("scissors") }} Cut at playhead</button>
+      <span class="sep"></span>
+      <label>Speed:
+        <select id="speed">
+          <option value="0.5">0.5x</option><option value="0.75">0.75x</option><option value="1" selected>1x</option>
+          <option value="1.25">1.25x</option><option value="1.5">1.5x</option><option value="2">2x</option>
+        </select>
+      </label>
+      <label>Timeline zoom: <input type="range" id="zoom" min="0" max="100" value="0"></label>
+      <label>Waveform height: <input type="range" id="gain" min="0.5" max="6" step="0.25" value="1"><output id="gainOut">1x</output></label>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="hint">Click = select segment &amp; move playhead · <b>drag across the waveform = crop that range into its own segment</b> ·
+      drag a dark line to move a boundary (snaps to word gaps, Alt = free) · double-click a line to merge ·
+      <kbd>Space</kbd> play/pause · <kbd>S</kbd> cut · <kbd>Del</kbd> delete / restore segment · <kbd>Left</kbd> <kbd>Right</kbd> 0.1 s (Shift 1 s) ·
+      <kbd>Up</kbd> <kbd>Down</kbd> segment · <kbd>Ctrl</kbd>+wheel zoom</div>
+  </div>
+</div>

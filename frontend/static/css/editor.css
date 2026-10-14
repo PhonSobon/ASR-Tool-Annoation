@@ -1,0 +1,41 @@
+/* Upload & Crop page: steps, drop zone, cut length, waveform cut editor, push bar */
+.step { display:flex; align-items:center; gap:8px; font-weight:600; font-size:15px; margin:0 0 10px; }
+.step:not(:first-child) { margin-top:18px; }
+.step .num { width:22px; height:22px; border-radius:50%; background:var(--primary); color:#fff; font-size:12px;
+             display:inline-flex; align-items:center; justify-content:center; }
+.drop { display:flex; align-items:center; justify-content:center; min-height:72px; padding:14px;
+        border:2px dashed #cbd5e1; border-radius:8px; color:var(--muted); cursor:pointer; text-align:center; }
+.drop:hover, .drop.over { border-color:var(--primary); background:#eff6ff; color:var(--primary); }
+.presets { display:flex; gap:6px; }
+.preset { padding:8px 14px; }
+.preset.on { background:var(--primary); color:#fff; }
+.secs { display:flex; align-items:center; gap:6px; font-size:14px; color:var(--muted); }
+.secs input { width:90px; }
+
+/* waveform cut editor */
+.wavepanel { position:sticky; top:60px; z-index:10; box-shadow:0 6px 16px rgba(15,23,42,.08); padding:12px 16px; }
+.wave-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; margin-bottom:8px; }
+.wave-head b { font-size:15px; word-break:break-all; }
+.wavebox { position:relative; border:1px solid var(--border); border-radius:6px; overflow:hidden; background:#fff; }
+#wave { display:block; width:100%; cursor:crosshair; }
+.hbar { overflow-x:auto; overflow-y:hidden; height:14px; margin-top:2px; }
+.hbar > div { height:1px; }
+.controls { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; margin-top:10px; padding:10px 14px;
+            background:#f3f4f6; border-radius:8px; font-size:14px; }
+.clock { font-variant-numeric:tabular-nums; min-width:170px; }
+.icon { width:38px; height:34px; padding:0; display:inline-flex; align-items:center; justify-content:center;
+        background:#fff; color:var(--text); border:1px solid var(--border); font-size:15px; }
+.icon:hover:not(:disabled) { border-color:var(--primary); color:var(--primary); }
+.controls label { display:flex; align-items:center; gap:8px; color:#374151; }
+.controls select { padding:5px 8px; }
+.controls input[type=range] { width:130px; accent-color:var(--primary); }
+.controls .sep { width:1px; height:24px; background:#d1d5db; }
+.controls output { font-variant-numeric:tabular-nums; min-width:38px; font-size:13px; color:var(--muted); }
+.hint { font-size:12px; color:var(--muted); margin-top:8px; }
+.hint kbd { font:11px system-ui; background:#fff; border:1px solid var(--border); border-bottom-width:2px; border-radius:4px; padding:0 4px; }
+
+/* push to task */
+.pushbar { position:sticky; bottom:0; z-index:9; box-shadow:0 -6px 16px rgba(15,23,42,.08); }
+.pushbar .step { margin-bottom:8px; }
+.pushbar #taskName { width:min(320px, 60vw); }
+.pick-links { font-size:13px; color:var(--muted); display:flex; gap:4px; align-items:center; }

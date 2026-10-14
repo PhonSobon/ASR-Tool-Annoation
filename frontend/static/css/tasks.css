@@ -1,0 +1,20 @@
+/* My Tasks page: search bar, task cards, pagination */
+.toolbar { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; margin-bottom:18px; }
+.search { display:flex; }
+.search input { width:min(360px, 60vw); border-radius:4px 0 0 4px; }
+.search button { border-radius:0 4px 4px 0; padding:8px 16px; }
+.cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:22px; }
+.task-card { border:1px solid var(--border); border-radius:4px; background:#fff; cursor:pointer; transition:box-shadow .15s, border-color .15s; }
+.task-card:hover, .task-card:focus-visible { box-shadow:0 4px 16px rgba(15,23,42,.10); border-color:#bfdbfe; outline:0; }
+.tc-tags { display:flex; justify-content:flex-end; align-items:center; gap:8px; padding:16px 20px; border-bottom:1px solid var(--border); }
+.tag { font-size:12px; padding:1px 7px; border:1px solid #b7eb8f; background:#f6ffed; color:#389e0d; border-radius:2px; }
+.tc-del { background:none; color:var(--muted); padding:2px 6px; font-weight:400; margin-left:4px; }
+.tc-del:hover { color:var(--err); }
+.tc-body { padding:18px 24px 20px; font-size:14px; }
+.tc-body h3 { margin:0 0 10px; font-size:16px; word-break:break-all; }
+.tc-desc { color:#4b5563; margin:4px 0 14px; }
+.tc-counts { display:flex; justify-content:space-between; font-size:13px; color:#4b5563; }
+.tc-meta { font-size:12px; color:var(--muted); margin-top:6px; }
+.pager { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:8px; margin-top:24px; font-size:14px; }
+.pager button { background:#fff; color:var(--text); border:1px solid var(--border); padding:4px 11px; font-weight:400; }
+.pager button.on { border-color:var(--primary); color:var(--primary); }

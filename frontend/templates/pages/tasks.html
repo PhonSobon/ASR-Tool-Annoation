@@ -1,0 +1,22 @@
+{% from "partials/macros.html" import icon %}
+{# My Tasks: one card per uploaded audio (filled by static/js/tasks.js) #}
+<section id="pageTasks" hidden>
+  <div class="panel headcard">
+    <h2>My Tasks</h2>
+    <p>Welcome to your personal workbench. Each task is a batch of audio pushed from Upload &amp; Crop — open one to annotate it.</p>
+  </div>
+  <div class="panel flat">
+    <div class="toolbar">
+      <div class="search">
+        <input id="taskSearch" placeholder="Search keyword" aria-label="Search tasks">
+        <button id="btnSearch" title="Search" aria-label="Search">{{ icon("search") }}</button>
+      </div>
+      <button id="btnNewTask">{{ icon("plus") }} Upload audio</button>
+      <span style="flex:1"></span>
+      <span class="muted" id="taskTotal"></span>
+    </div>
+    <div class="cards" id="taskCards"></div>
+    <div class="empty" id="taskEmpty" hidden></div>
+    <div class="pager" id="pager"></div>
+  </div>
+</section>

@@ -1,0 +1,65 @@
+/* Task page: "Task Batch List" (packages = crops) and the annotation view of one package */
+.task-head { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; justify-content:space-between; }
+.headcard .sub { font-size:14px; color:var(--text); }
+button.back { background:#fff; color:var(--text); border:1px solid var(--border); font-weight:400; padding:6px 14px; }
+button.back:hover { border-color:var(--primary); color:var(--primary); }
+
+/* filters + actions */
+.filter-bar { display:flex; flex-wrap:wrap; gap:12px 16px; padding:16px; background:#f5f5f5; border-radius:2px; margin-bottom:16px; }
+.filter-bar > * { flex:1 1 170px; max-width:260px; }
+.search.sm input { flex:1; min-width:0; width:auto; padding:6px 10px; font-size:13px; }
+.search.sm button { background:#fff; color:var(--muted); border:1px solid var(--border); border-left:0; padding:6px 12px; }
+.filter-bar select { width:100%; padding:6px 10px; font-size:13px; color:var(--muted); }
+.pkg-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:12px; }
+.pkg-actions button { font-weight:400; padding:6px 14px; font-size:14px; }
+.pkg-actions button.sec { background:#fff; border:1px solid var(--border); }
+.pkg-actions button.sec:hover:not(:disabled) { border-color:var(--primary); color:var(--primary); }
+
+/* Todo / Processed */
+.crop-tabs { display:flex; gap:28px; border-bottom:1px solid var(--border); margin-bottom:24px; }
+.crop-tabs button { background:none; color:var(--text); border-radius:0; padding:10px 2px; font-size:14px; font-weight:400;
+                    border-bottom:2px solid transparent; margin-bottom:-1px; }
+.crop-tabs button:hover { color:var(--primary); }
+.crop-tabs button.on { color:var(--primary); border-bottom-color:var(--primary); }
+.crop-tabs .n { margin-left:6px; padding:0 7px; border-radius:10px; font-size:12px; background:#eef0f3; color:var(--muted); }
+.crop-tabs button.on .n { background:#dbeafe; color:var(--primary); }
+
+/* Duration Stats */
+.info-box { display:flex; gap:12px; padding:16px 24px; margin-bottom:16px; background:#e6f4ff; border:1px solid #91caff; border-radius:8px; }
+.info-i { flex:none; display:inline-flex; color:var(--primary); }
+.info-i .i { width:24px; height:24px; }
+.info-title { font-size:16px; margin-bottom:8px; }
+.info-stats { display:flex; flex-wrap:wrap; gap:6px 24px; font-size:14px; }
+.info-stats b { font-weight:700; }
+.q { display:inline-flex; margin-left:4px; color:var(--primary); cursor:help; }
+.q .i { width:15px; height:15px; }
+
+/* package table */
+.table-wrap { overflow-x:auto; border-radius:8px; box-shadow:0 1px 6px rgba(15,23,42,.08); background:#fff; }
+.pkg-table { width:100%; min-width:1100px; border-collapse:collapse; font-size:14px; }
+.pkg-table th { background:#fafafa; text-align:left; font-weight:600; padding:16px; border-bottom:1px solid #f0f0f0; }
+.pkg-table th + th { border-left:1px solid #f0f0f0; }
+.pkg-table td { padding:14px 16px; border-bottom:1px solid #f0f0f0; vertical-align:middle; }
+.pkg-table tbody tr:hover td { background:#fafafa; }
+.pkg-table a { color:var(--primary); text-decoration:none; cursor:pointer; }
+.pkg-table a:hover { text-decoration:underline; }
+.pkg-sub { font-size:12px; color:var(--muted); margin-top:2px; font-variant-numeric:tabular-nums; }
+.who { color:var(--primary); font-weight:500; }
+.st { display:inline-flex; align-items:center; gap:6px; }
+.st::before { content:""; width:6px; height:6px; border-radius:50%; background:#d1d5db; }
+.st.done::before { background:var(--ok); }
+.st.running::before { background:var(--run); }
+.st.error::before { background:var(--err); }
+.pkg-empty { text-align:center; color:var(--muted); padding:40px 10px 48px; font-size:14px; }
+.pkg-empty-icon { color:#c0c4cc; margin-bottom:6px; }
+.pkg-pager { display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:8px; margin-top:16px; font-size:14px; }
+.pkg-pager button { background:#fff; color:var(--text); border:1px solid var(--border); padding:4px 11px; font-weight:400; }
+.pkg-pager button.on { border-color:var(--primary); color:var(--primary); }
+.pkg-pager select { padding:4px 8px; }
+
+/* status badge */
+.badge { display:inline-block; font-size:12px; padding:1px 8px; border-radius:10px; background:#eef0f3; color:var(--muted); font-weight:500; vertical-align:middle; }
+.badge.running { background:#fef3c7; color:var(--run); }
+.badge.done { background:#dcfce7; color:var(--ok); }
+.badge.error { background:#fee2e2; color:var(--err); }
+.req::after { content:"*"; color:var(--err); margin-left:2px; }

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include "pages/tasks.html" %}
+{% include "pages/upload.html" %}
+{% include "pages/task.html" %}
+{% endblock %}
+
+{% block scripts %}
+{#- Plain scripts (no build step) loaded in order; they share top-level variables, so order matters:
+    helpers -> state -> features -> main.js (start-up) -#}
+{% for js in ["api", "notify", "user", "format", "state", "autosave", "session", "waveform", "editor", "audio-list", "upload",
+              "tasks", "crops", "package", "router", "main"] %}
+<script src="{{ url_for('static', filename='js/' ~ js ~ '.js') }}"></script>
+{% endfor %}
+{% endblock %}

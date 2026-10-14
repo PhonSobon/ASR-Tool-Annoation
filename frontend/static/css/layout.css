@@ -1,0 +1,35 @@
+/* Platform shell: header, sidebar, breadcrumb, page title card */
+.appbar { position:sticky; top:0; z-index:30; height:60px; display:flex; align-items:center; gap:12px; padding:0 20px;
+          background:#fff; border-bottom:1px solid var(--border); }
+.brand { display:flex; align-items:center; gap:14px; color:var(--text); text-decoration:none; font:700 19px Georgia,"Times New Roman",serif; }
+.brand svg { width:32px; height:32px; flex:none; }
+.save-state { font-size:12px; color:var(--muted); }
+.save-state.err { color:var(--err); }
+.avatar { width:36px; height:36px; padding:0; border-radius:50%; background:var(--primary); color:#fff; display:inline-flex;
+          align-items:center; justify-content:center; font-weight:600; cursor:pointer; }
+.layout { display:flex; min-height:calc(100vh - 60px); }
+.sidebar { width:204px; flex:none; background:#fff; border-right:1px solid var(--border); padding:8px 0;
+           position:sticky; top:60px; height:calc(100vh - 60px); overflow-y:auto; }
+.nav-head { width:100%; display:flex; align-items:center; gap:8px; padding:12px 20px; background:none; color:var(--primary);
+            font-weight:500; font-size:14px; border-radius:0; text-align:left; }
+.nav-head .caret { margin-left:auto; display:inline-flex; font-size:13px; transition:transform .2s; }
+.nav-group.closed .caret { transform:rotate(180deg); }
+.nav-group.closed .nav-item { display:none; }
+.nav-item { display:block; margin:2px 4px; padding:10px 12px 10px 48px; font-size:14px; color:var(--text); text-decoration:none; border-radius:2px; }
+.nav-item:hover { color:var(--primary); }
+.nav-item.on { background:var(--primary); color:#fff; }
+.main { flex:1; min-width:0; padding:0 18px 60px 20px; }
+.crumbs { display:flex; align-items:center; gap:10px; height:40px; font-size:14px; color:var(--muted); }
+.crumbs a { color:var(--muted); text-decoration:none; }
+.crumbs a:hover { color:var(--primary); }
+.crumb-toggle { background:none; color:var(--muted); padding:4px 6px; font-weight:400; }
+.headcard { padding:18px 20px; border-radius:2px; border:0; }
+.headcard h2 { margin:0 0 10px; font-size:18px; font-weight:500; border-left:3px solid var(--primary); padding-left:12px; line-height:1.1; }
+.headcard p { margin:0; font-size:13px; }
+body.side-hidden .sidebar { display:none; }
+@media (max-width:800px) {
+  .sidebar { position:fixed; left:0; top:60px; z-index:25; box-shadow:4px 0 16px rgba(15,23,42,.15); }
+  body:not(.side-open) .sidebar { display:none; }
+  .brand span { font-size:16px; }
+  .main { padding:0 12px 40px; }
+}

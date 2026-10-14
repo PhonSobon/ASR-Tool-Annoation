@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Data Annotation Platform{% endblock %}</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600&display=swap" rel="stylesheet">
+{% for css in ["base", "layout", "tasks", "audio-list", "editor", "crops", "package", "notify"] %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/' ~ css ~ '.css') }}">
+{% endfor %}
+</head>
+<body>
+{% include "partials/icons.html" %}
+{% include "partials/header.html" %}
+
+<div class="layout">
+  {% include "partials/sidebar.html" %}
+  <main class="main">
+    {% include "partials/breadcrumb.html" %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+{# notifications (static/js/notify.js) #}
+<div class="notes" id="notes" aria-live="polite"></div>
+<dialog class="confirm" id="confirmDialog">
+  <h3 id="confirmTitle"></h3>
+  <p id="confirmText"></p>
+  <div class="confirm-actions">
+    <button type="button" class="sec" id="confirmCancel">Cancel</button>
+    <button type="button" id="confirmOk">OK</button>
+  </div>
+</dialog>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

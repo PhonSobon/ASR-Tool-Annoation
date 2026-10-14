@@ -1,0 +1,53 @@
+{% from "partials/macros.html" import icon %}
+{# Upload & Crop: upload several audio files, cut each on the waveform, push the ticked ones to a task (static/js/upload.js) #}
+<section id="pageUpload" hidden>
+  <div class="panel headcard">
+    <h2>Upload &amp; Crop Audio</h2>
+    <p>Upload one or more audio files, cut each one into crops and fix the cuts on the waveform, then tick the audio that are ready and push them to a task. The others stay here.</p>
+  </div>
+
+  <div class="panel">
+    <div class="step"><span class="num">1</span> Upload audio</div>
+    <label class="drop" id="drop">
+      <input type="file" id="audioFiles" accept="audio/*,video/*" multiple hidden>
+      <span>{{ icon("upload", "lg") }} Drop one or more audio files here, or <u>click to browse</u></span>
+    </label>
+
+    <div class="step"><span class="num">2</span> Audio files <span class="muted" id="draftCount"></span></div>
+    <div class="audio-list" id="draftList"></div>
+    <div class="list-empty" id="draftEmpty">No audio yet — upload files above. Click a file to show its waveform.</div>
+
+    <div class="step"><span class="num">3</span> Cut length</div>
+    <div class="row">
+      <div class="presets" role="group" aria-label="Quick cut lengths">
+        <button type="button" class="sec preset" data-sec="10">10 s</button>
+        <button type="button" class="sec preset" data-sec="20">20 s</button>
+        <button type="button" class="sec preset" data-sec="30">30 s</button>
+      </div>
+      <label class="secs">
+        <input type="number" id="chunk" value="30" min="1" step="1" aria-label="Cut length in seconds">
+        <span>seconds</span>
+      </label>
+      <button id="btnCut" disabled title="Cut the audio shown on the waveform">{{ icon("scissors") }} Cut selected audio</button>
+      <button id="btnCutAll" class="sec" disabled title="Cut every audio in the list with this length">{{ icon("scissors") }} Cut all audio</button>
+      <span class="muted" id="cutEstimate"></span>
+    </div>
+  </div>
+
+  <div id="uploadEditorSlot">
+    {% include "partials/editor.html" %}
+  </div>
+
+  <div class="panel pushbar" id="pushBar" hidden>
+    <div class="step"><span class="num">4</span> Push to task
+      <span class="pick-links">— tick the audio to push:
+        <button type="button" class="link" id="pickAll">all</button>·
+        <button type="button" class="link" id="pickCut">cut only</button>·
+        <button type="button" class="link" id="pickNone">none</button></span></div>
+    <div class="row">
+      <label class="secs">Task name <input id="taskName" size="28" aria-label="Task name"></label>
+      <button id="btnPush">Push to task {{ icon("arrow-right") }}</button>
+      <span class="muted" id="pushInfo"></span>
+    </div>
+  </div>
+</section>
