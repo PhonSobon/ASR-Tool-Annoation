@@ -1,0 +1,152 @@
+{% from "partials/macros.html" import icon %}
+{# One imported dataset: checks, review of one clip, the clip list, export / push (static/js/review.js) #}
+<section id="pageDataset" hidden>
+  <div class="panel headcard">
+    <div class="task-head">
+      <div>
+        <h2 id="dsTitle"></h2>
+        <p class="sub" id="dsSource"></p>
+      </div>
+      <button class="sec back" id="btnBackDs">{{ icon("arrow-left") }} Back</button>
+    </div>
+  </div>
+
+  <div class="panel flat">
+    <div class="info-box">
+      <span class="info-i">{{ icon("info") }}</span>
+      <div class="grow">
+        <div class="info-title">Quality overview</div>
+        <div class="info-stats" id="dsStats"></div>
+        <div class="cat-bar" id="dsCatBar"></div>
+      </div>
+    </div>
+
+    <div class="pkg-actions">
+      <button class="sec" id="btnCheck" title="Recognize every clip with the local ASR and compare it with its text">{{ icon("recognize") }} Run checks</button>
+      <button class="sec" id="btnAcceptPass" title="Accept every clip to review that passed the checks">{{ icon("check-circle") }} Accept passing clips</button>
+      <label class="muted inline">CER ≤ <input id="passCer" type="number" min="0" max="100" step="1" value="10" class="num"> %</label>
+      <span class="sep"></span>
+      <label class="muted inline">Output
+        <select id="outInclude">
+          <option value="accepted">Accepted clips only</option>
+          <option value="not_rejected">Everything except rejected</option>
+          <option value="all">All clips (with review status)</option>
+        </select></label>
+      <label class="muted inline"><input type="checkbox" id="outTrim" checked> Trim long silence</label>
+      <button class="sec" id="btnDsExport">{{ icon("download") }} Export ZIP</button>
+      <button id="btnDsPush">{{ icon("upload") }} Push to Hugging Face</button>
+    </div>
+    <div class="job" id="dsJob" hidden>
+      <span id="dsJobText"></span>
+      <div class="bar"><div id="dsJobBar"></div></div>
+      <button class="stop small" id="btnJobStop">{{ icon("stop") }} Stop</button>
+    </div>
+
+    {# ---------- review one clip ---------- #}
+    <div class="rv" id="rv" hidden>
+      <div class="rv-head">
+        <b id="rvTitle"></b>
+        <span class="badge" id="rvCat"></span>
+        <span class="badge" id="rvStatus"></span>
+        <span style="flex:1"></span>
+        <span class="pkg-nav">
+          <button class="sec small" id="rvPrev" title="Previous clip (K or ↑)" aria-label="Previous clip">{{ icon("chevron-left") }}</button>
+          <span id="rvPos"></span>
+          <button class="sec small" id="rvNext" title="Next clip (J or ↓)" aria-label="Next clip">{{ icon("chevron-right") }}</button>
+        </span>
+      </div>
+      <div class="rv-wave">
+        <button class="play" id="rvPlay" title="Play / pause (Space)" aria-label="Play / pause">{{ icon("play") }}</button>
+        <canvas id="rvCanvas" height="72"></canvas>
+      </div>
+      <div class="rv-trim muted">
+        <span id="rvTime"></span>
+        <span style="flex:1"></span>
+        Keep <input id="rvStart" type="number" step="0.05" min="0" class="num"> –
+        <input id="rvEnd" type="number" step="0.05" min="0" class="num"> s
+        <button class="link" id="rvAutoTrim" title="Cut the silence at both ends (T)">Trim silence</button>
+        <button class="link" id="rvNoTrim">Keep whole clip</button>
+        <span class="sep"></span>
+        <button class="sec small" id="rvSplit" title="Cut the clip in two at the playhead (S) - click the waveform first">{{ icon("scissors") }} Cut here</button>
+        <button class="sec small" id="rvJoin" title="Join this part with the next part of the same row" hidden>Join next part</button>
+      </div>
+      <div class="rv-texts">
+        <div><div class="rv-lab">Dataset text</div><div class="rv-diff" id="rvOrig"></div></div>
+        <div><div class="rv-lab">ASR heard <span class="pill" id="rvCer"></span>
+          <button class="link" id="rvRecheck" title="Recognize this clip again (its trim applied)">Check this clip</button></div><div class="rv-diff" id="rvAsr"></div></div>
+      </div>
+      <label class="rv-lab" for="rvText">Final text <span class="muted" id="rvSaved"></span></label>
+      <textarea id="rvText" rows="2" lang="km"></textarea>
+      <div class="rv-lab rv-lab-row">
+        <label for="rvNorm">Normalized text <span class="muted" id="rvNormNote"></span></label>
+        <button class="link" id="rvNormAuto" title="Make it again from the final text">{{ icon("restore") }} Auto-normalize</button>
+      </div>
+      <textarea id="rvNorm" rows="2" lang="km" title="Zero-width spaces removed, Khmer digits written 0-9, words separated by spaces"></textarea>
+      <div class="rv-flags" id="rvFlags"></div>
+      <div class="rv-actions">
+        <button id="rvAccept" title="Accept (A, or Ctrl+Enter while typing)">{{ icon("check") }} Accept</button>
+        <button class="sec" id="rvUseAsr" title="Use the ASR text (U)">Use ASR text</button>
+        <button class="sec" id="rvReset" title="Back to the dataset text">{{ icon("restore") }} Original text</button>
+        <span style="flex:1"></span>
+        <select id="rvReason" aria-label="Reject reason">
+          <option value="">Reject reason…</option><option>Text does not match audio</option><option>Text cut off</option>
+          <option>Bad audio quality</option><option>No speech / noise</option><option>Duplicate</option>
+          <option>Wrong language</option><option>Other</option>
+        </select>
+        <button class="stop" id="rvReject" title="Reject (R)">{{ icon("x") }} Reject</button>
+      </div>
+      <div class="muted rv-keys">Keys: <b>Space</b> play · <b>A</b> accept · <b>U</b> use ASR text · <b>R</b> reject · <b>T</b> trim silence · <b>S</b> cut at the playhead · <b>J/K</b> next/previous · <b>E</b> edit text · <b>Ctrl+Enter</b> accept while typing</div>
+    </div>
+
+    {# ---------- clip list ---------- #}
+    <div class="crop-tabs" role="tablist" aria-label="Clips" id="dsTabs">
+      <button type="button" role="tab" data-f="todo" class="on">To review</button>
+      <button type="button" role="tab" data-f="accepted">Accepted</button>
+      <button type="button" role="tab" data-f="rejected">Rejected</button>
+      <button type="button" role="tab" data-f="all">All</button>
+    </div>
+    <div class="filter-bar">
+      <div class="search sm">
+        <input id="dsQ" placeholder="Search text or row number" aria-label="Search text or row number">
+        <button type="button" title="Search" aria-label="Search">{{ icon("search") }}</button>
+      </div>
+      <select id="dsCat" aria-label="Filter by check result">
+        <option value="">Every check result</option><option value="bad">Likely bad</option><option value="review">Needs review</option>
+        <option value="pass">Passed</option><option value="unchecked">Not checked yet</option>
+      </select>
+      <select id="dsFlag" aria-label="Filter by problem"><option value="">Every problem</option></select>
+      <select id="dsSort" aria-label="Sort">
+        <option value="cer">Worst first (CER)</option><option value="row">Row order</option>
+        <option value="long">Longest first</option><option value="short">Shortest first</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table class="pkg-table ds-table">
+        <thead><tr><th>Row</th><th>Duration</th><th>Text</th><th>ASR heard</th><th>CER</th><th>Problems</th><th>Status</th></tr></thead>
+        <tbody id="dsBody"></tbody>
+      </table>
+      <div class="pkg-empty" id="dsListEmpty" hidden><div class="pkg-empty-icon">{{ icon("inbox", "xl") }}</div>No clips</div>
+    </div>
+    <div class="pkg-pager" id="dsPager"></div>
+  </div>
+
+  <dialog id="pushDialog" class="push-dlg">
+    <h3>{{ icon("upload") }} Push to Hugging Face</h3>
+    <label class="fld"><span class="req">Dataset repo</span><input id="pushRepo" placeholder="your-name/dataset_clean" autocomplete="off"></label>
+    <div class="radios col">
+      <label><input type="radio" name="pushMode" value="own" checked> Push to my repo (created if it does not exist)</label>
+      <label><input type="radio" name="pushMode" value="pr"> Open a pull request on an existing repo (e.g. the original dataset)</label>
+    </div>
+    <div class="form-grid push-grid">
+      <label class="fld"><span>Split</span><input id="pushSplit"></label>
+      <label class="fld"><span>Access token (write)</span>
+        <input id="pushToken" type="password" placeholder="Empty = your saved hf login" autocomplete="off"></label>
+    </div>
+    <label class="muted"><input type="checkbox" id="pushPrivate" checked> Private repo (only when it is created now)</label>
+    <p class="muted" id="dsPushInfo"></p>
+    <div class="confirm-actions">
+      <button type="button" class="sec" id="pushCancel">Cancel</button>
+      <button type="button" id="pushOk">{{ icon("upload") }} Push</button>
+    </div>
+  </dialog>
+</section>

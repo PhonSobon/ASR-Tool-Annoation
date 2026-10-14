@@ -11,7 +11,8 @@ SR = 16000
 
 @pytest.fixture
 def app(tmp_path):
-    return create_app({"TESTING": True, "AUDIO_DIR": str(tmp_path / "audio"), "TASKS_DIR": str(tmp_path / "tasks")})
+    return create_app({"TESTING": True, "AUDIO_DIR": str(tmp_path / "audio"), "TASKS_DIR": str(tmp_path / "tasks"),
+                       "DATASETS_DIR": str(tmp_path / "datasets")})
 
 
 @pytest.fixture

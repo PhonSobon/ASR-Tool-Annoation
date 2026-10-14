@@ -5,3 +5,8 @@ torch
 safetensors
 khmercut
 huggingface_hub
+pyarrow
+soundfile
+soxr
+pyyaml
+audioop-lts; python_version >= "3.13"  # pydub needs audioop, removed from Python 3.13

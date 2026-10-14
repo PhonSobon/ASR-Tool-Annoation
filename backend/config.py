@@ -19,6 +19,7 @@ class Config:
     # one folder per uploaded audio: full.wav, meta.json, state.json ("sessions" = name used by earlier versions)
     AUDIO_DIR = os.path.join(DATA_DIR, "sessions")
     TASKS_DIR = os.path.join(DATA_DIR, "tasks")  # one <task_id>.json per task
+    DATASETS_DIR = os.path.join(DATA_DIR, "datasets")  # one folder per Hugging Face dataset being cleaned
     OMNI_ASR_MODEL = os.environ.get("OMNI_ASR_MODEL") or _default_model()
     ANNOTATOR_NAME = os.environ.get("ANNOTATOR_NAME", "")  # empty = the computer's user name
 
@@ -26,6 +27,14 @@ class Config:
     PEAK_RATE = 200            # waveform min/max pairs per second sent to the browser
     DEFAULT_CHUNK_SECONDS = 30
     MIN_EXPORT_SECONDS = 0.1   # shorter segments are left out of the export
+
+    # Dataset cleaning: a clip passes when the ASR's character error rate against its text is at most CER_PASS
+    # (and nothing else looks wrong); above CER_BAD it is likely bad.
+    CER_PASS = float(os.environ.get("CER_PASS", 0.10))
+    CER_BAD = float(os.environ.get("CER_BAD", 0.50))
+    MIN_CLIP_SECONDS = 0.5
+    MAX_CLIP_SECONDS = 30
+    SILENCE_SECONDS = 1.0      # longer silence at the start / end of a clip is flagged (and trimmed on export)
 
     MAX_CONTENT_LENGTH = 1024 * 1024 * 1024  # 1 GB upload limit
     JSON_AS_ASCII = False

@@ -22,7 +22,7 @@ def create_app(config=None):
     app.config.from_object(Config)
     if config:
         app.config.update(config)
-    for key in ("AUDIO_DIR", "TASKS_DIR"):
+    for key in ("AUDIO_DIR", "TASKS_DIR", "DATASETS_DIR"):
         os.makedirs(app.config[key], exist_ok=True)
 
     register_blueprints(app)

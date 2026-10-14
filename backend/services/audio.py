@@ -19,6 +19,39 @@ def convert_to_wav(src, dst, sr):
     return len(seg) / 1000
 
 
+def decode_bytes(data, sr):
+    """Encoded audio bytes (WAV, FLAC, MP3, OGG...; anything else via FFmpeg) -> float32 mono samples at `sr`."""
+    import soundfile as sf
+
+    try:
+        x, src_sr = sf.read(io.BytesIO(data), dtype="float32", always_2d=True)
+    except Exception:
+        from pydub import AudioSegment
+
+        seg = AudioSegment.from_file(io.BytesIO(data)).set_channels(1).set_frame_rate(sr).set_sample_width(2)
+        return np.frombuffer(seg.raw_data, dtype=np.int16).astype(np.float32) / 32768
+    return resample(x.mean(axis=1), src_sr, sr)
+
+
+def resample(x, src_sr, sr):
+    if src_sr == sr:
+        return np.ascontiguousarray(x, dtype=np.float32)
+    import soxr
+
+    return soxr.resample(x, src_sr, sr).astype(np.float32)
+
+
+def to_pcm(x):
+    """float samples in [-1, 1] -> int16"""
+    return (np.clip(x, -1, 1) * 32767).astype(np.int16)
+
+
+def read_wav(path):
+    """int16 samples of a small WAV file (not cached)."""
+    with wave.open(path, "rb") as w:
+        return np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
+
+
 def load_pcm(path):
     """int16 samples of a WAV file (cached for the most recently used file)."""
     with _lock:

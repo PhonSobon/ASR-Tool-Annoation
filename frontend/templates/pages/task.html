@@ -34,7 +34,13 @@
         <button class="sec" id="btnRecAll" title="Recognize every package that has no text yet">{{ icon("recognize") }} Recognize all</button>
         <button class="stop" id="btnRecStop" disabled>{{ icon("stop") }} Stop</button>
         <button class="sec" id="btnExportTask" title="Download every package of this task as one ZIP">{{ icon("download") }} Export task ZIP</button>
+        <button id="btnTaskPush" title="Upload the completed packages to a Hugging Face dataset repo">{{ icon("upload") }} Push to Hugging Face</button>
         <span class="muted" id="taskStatus"></span>
+      </div>
+      <div class="job" id="tpJob" hidden>
+        <span id="tpJobText"></span>
+        <div class="bar"><div id="tpJobBar"></div></div>
+        <button class="stop small" id="tpJobStop">{{ icon("stop") }} Stop</button>
       </div>
 
       <div class="crop-tabs" role="tablist" aria-label="Packages">
@@ -189,6 +195,32 @@
       <form method="dialog"><button>Close</button></form>
     </dialog>
   </div>
+
+  {# ---------- push the task to the Hugging Face Hub (static/js/task-push.js) ---------- #}
+  <dialog id="tpDialog" class="push-dlg">
+    <h3>{{ icon("upload") }} Push task to Hugging Face</h3>
+    <label class="fld"><span class="req">Dataset repo</span><input id="tpRepo" placeholder="your-name/khmer_asr_dataset" autocomplete="off"></label>
+    <div class="radios col">
+      <label><input type="radio" name="tpMode" value="own" checked> Push to my repo (created if it does not exist)</label>
+      <label><input type="radio" name="tpMode" value="pr"> Open a pull request on an existing repo</label>
+    </div>
+    <div class="form-grid push-grid">
+      <label class="fld"><span>Split</span><input id="tpSplit" value="train"></label>
+      <label class="fld"><span>Packages</span>
+        <select id="tpInclude">
+          <option value="done">Completed packages only</option>
+          <option value="with_text">Every segment with text</option>
+        </select></label>
+      <label class="fld"><span>Access token (write)</span>
+        <input id="tpToken" type="password" placeholder="Empty = your saved hf login" autocomplete="off"></label>
+    </div>
+    <label class="muted"><input type="checkbox" id="tpPrivate" checked> Private repo (only when it is created now)</label>
+    <p class="muted push-info" id="tpInfo"></p>
+    <div class="confirm-actions">
+      <button type="button" class="sec" id="tpCancel">Cancel</button>
+      <button type="button" id="tpOk">{{ icon("upload") }} Push</button>
+    </div>
+  </dialog>
 
   <datalist id="roles"><option value="Narrator"><option value="Speaker 1"><option value="Speaker 2"><option value="Speaker 3">
     <option value="Interviewer"><option value="Guest"></datalist>

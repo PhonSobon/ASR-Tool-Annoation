@@ -1,0 +1,56 @@
+{% from "partials/macros.html" import icon %}
+{# Dataset Cleaning: import a Hugging Face dataset and the list of imported datasets (static/js/datasets.js) #}
+<section id="pageDatasets" hidden>
+  <div class="panel headcard">
+    <h2>Dataset Cleaning</h2>
+    <p>Import a speech dataset from Hugging Face, let the local ASR check every clip, review the doubtful ones, then export it or push the cleaned dataset back to the Hub.</p>
+  </div>
+
+  <div class="panel">
+    <b class="sec-title">{{ icon("download") }} Import from Hugging Face</b>
+    <div class="imp-row">
+      <label class="fld grow"><span class="req">Dataset</span>
+        <input id="hfRepo" placeholder="e.g. seanghay/khmer_mpwt_speech or its URL" autocomplete="off"></label>
+      <label class="fld"><span>Access token</span>
+        <input id="hfToken" type="password" placeholder="Only for private / gated datasets" autocomplete="off"></label>
+      <button id="btnInspect">{{ icon("search") }} Load</button>
+    </div>
+    <div class="errmsg" id="impErr"></div>
+    <div id="impForm" hidden>
+      <div class="form-grid imp-grid">
+        <label class="fld"><span>Config</span><select id="impConfig"></select></label>
+        <label class="fld"><span>Split</span><select id="impSplit"></select></label>
+        <label class="fld"><span class="req">Audio column</span><select id="impAudio"></select></label>
+        <label class="fld"><span class="req">Text column</span><select id="impText"></select></label>
+        <label class="fld"><span>Name</span><input id="impName"></label>
+      </div>
+      <div class="form-grid imp-grid">
+        <label class="fld"><span>Start at row</span><input id="impStart" type="number" min="0" value="0"
+          title="The next row not imported yet is filled in"></label>
+        <label class="fld"><span>Rows per batch</span><input id="impMax" type="number" min="1" placeholder="All rows (one dataset)"
+          title="A big dataset is cleaned in batches of e.g. 200 rows; each batch reads only its rows from the Hub"></label>
+        <label class="fld"><span>Batches</span><input id="impBatches" type="number" min="1" max="100" value="1"></label>
+        <label class="fld chk"><span>&nbsp;</span><span><input type="checkbox" id="impCheck" checked> Check with the ASR after import</span></label>
+      </div>
+      <div class="imp-row">
+        <span class="muted" id="impInfo"></span>
+        <span style="flex:1"></span>
+        <button id="btnImport">{{ icon("download") }} Import</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel flat">
+    <div class="toolbar"><b class="sec-title">Imported datasets</b><span style="flex:1"></span>
+      <select id="dsShow" aria-label="Show">
+        <option value="">All batches</option><option value="todo">Still to review</option>
+        <option value="unpushed">Reviewed, not pushed</option><option value="pushed">Pushed</option>
+      </select>
+      <div class="search sm"><input id="dsSearch" placeholder="Search name, repo or row" aria-label="Search datasets">
+        <button type="button" title="Search" aria-label="Search">{{ icon("search") }}</button></div>
+      <span class="muted" id="dsTotal"></span></div>
+    <div class="cards" id="dsCards"></div>
+    <div class="empty" id="dsEmpty" hidden>No dataset yet — load one from Hugging Face above.</div>
+    <div class="pager" id="dsCardPager"></div>
+  </div>
+</section>

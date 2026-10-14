@@ -1,179 +1,140 @@
-# Khmer ASR Annotation Tool
+# Khmer Audio Annotation Tool
 
-A local web tool for building Khmer speech datasets. Upload several recordings, cut each one into crops on its waveform and fix the cuts, push the ones that are ready to a task, then go through the task crop by crop: listen, recognize automatically, fix the text, and export WAV files plus a `metadata.json`.
+An open-source web tool for building and cleaning **Khmer speech datasets** for automatic speech recognition (ASR). It runs on your own computer, transcribes Khmer speech with a local model (no API key, no cloud service), and exports training-ready data as WAV + JSON or straight to the [Hugging Face Hub](https://huggingface.co/datasets).
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
+
+It covers two jobs:
+
+1. **Annotate your own recordings.** Upload long recordings, cut them into short clips on a waveform, let the model draft a transcript, fix it, add speaker and recording details, and export.
+2. **Clean an existing Hugging Face dataset.** Import a Khmer speech dataset (even one with a million rows, in batches of a few hundred), let the model flag clips whose text does not match the audio, review them, and push the cleaned dataset back to the Hub.
 
 ## Features
 
-- **Upload & Crop:** drop or pick several audio/video files at once (upload progress per file). Each file is listed with a waveform thumbnail, its duration and whether it is cut yet; click one to open its waveform.
-- **Cut length:** quick 10 s / 20 s / 30 s buttons or any number of seconds; cut the selected audio or all audio at once, then fix the wrong cuts on the waveform. This page shows only the waveform and cut tools, no text.
-- **Choose what to push:** every audio has a checkbox, ticked automatically once it is cut (tick/untick by hand, or *all · cut only · none*). Only ticked audio go to the task; the rest stay on Upload & Crop for later.
-- **Push to task:** the ticked audio become one task (a batch). **My Tasks** shows a card per task with audio count, duration, crops, to do / done and dates.
-- **Task Batch List:** opening a task lists its packages (one per crop, named like `audio1_0003`) in **Todo / Processed** tabs, with search and annotator filter, Duration Stats, annotator / update time per package, **Claim Package** (next Todo), **Recognize all** and **Export task ZIP**.
-- **Package page:** the crop in the same waveform editor (cut it into dialogue segments, one per speaker turn), the **Dialogue Segments** table (role, annotation text, normalized text, ▶ / ↻ recognize / 🗑 per segment), **Role Information** (age group, gender, native speaker per role) and **Overall Audio Information** (language, accent, domain, speech style, overlap, background sound, special challenges, code switching — pre-filled from the previous package). Missing required fields are listed at the bottom; **Annotation Specification** shows the guidelines; ‹ › and **Next package →** move on.
-- **Autosave:** every cut and every text change is saved on the server, so you can close the browser and continue later.
-- **One timeline for the whole recording:** a waveform with a time ruler, every segment shaded and numbered, the selected segment in blue, and the playhead with its time. Controls underneath: time, previous/next segment, play/pause, undo/redo, playback speed, timeline zoom and waveform height.
-- **Cutting:** drag across the waveform to crop that range into its own crop, or select a crop and cut at the playhead (**S**). Drag a boundary to move it, double-click it to merge two crops, **Del** to leave one out.
-- **Normalized text:** generated automatically from the annotation text (Khmer word segmentation with [khmercut](https://github.com/seanghay/khmercut), Khmer digits → 0-9, zero-width spaces removed). Edit it by hand any time; **↺ Auto-normalize** regenerates it.
-- **Local Khmer recognition:** [Darayut/Omnilingual-ASR-Khm](https://huggingface.co/Darayut/Omnilingual-ASR-Khm) runs on your own GPU or CPU, with no API key and no internet once the model is downloaded. There are no engine, language or model settings to choose.
-- **Safe editing:** progress counts (done / to do / errors / deleted, exported duration), a warning before you close the tab while changes are still being saved, hand-edited text is never overwritten by **Recognize all**, and the page doesn't jump while you type.
-- **Export:** a ZIP containing one folder, named after the uploaded file, with `wavs/` and a single `metadata.json` (see [Export format](#export-format)).
+**Annotation**
+- Upload many audio or video files at once; anything FFmpeg can read is converted to 16 kHz mono.
+- Waveform cut editor: fixed-length cuts (10 / 20 / 30 s), drag to crop, move boundaries (snapping to pauses), merge, skip, undo / redo, zoom.
+- Work is organised in **tasks** and **packages**, with Todo / Processed tabs, annotator tracking and duration statistics.
+- Dialogue support: cut a package into speaker turns, with a role per segment, speaker details (age group, gender, native speaker) and recording details (accent, domain, speech style, background sound, code switching …).
+- **Local Khmer ASR** drafts the text: [Darayut/Omnilingual-ASR-Khm](https://huggingface.co/Darayut/Omnilingual-ASR-Khm) runs on your GPU or CPU.
+- **Normalized text** for training, made automatically: Khmer word segmentation with [khmercut](https://github.com/seanghay/khmercut), Khmer digits written 0-9, zero-width spaces removed. You can correct it by hand.
+- Autosave: close the browser and continue later.
 
-## Setup
+**Dataset cleaning**
+- Import any Hugging Face audio dataset with a transcript column (public, private or gated).
+- **Batches for big datasets:** each batch reads only its own rows from the Hub, so a million-row dataset never has to be downloaded in full.
+- Automatic checks: character error rate (CER) of the local ASR against the dataset text, plus audio and text problems (silence, clipping, duplicates, digits, Latin letters, speaking rate …). Each clip is marked *passed*, *needs review* or *likely bad*.
+- Fast review: text and ASR output side by side with the differences highlighted, keyboard shortcuts, trim, cut a clip in two, join parts, reject with a reason.
 
-Requirements: Python 3.10+ and [FFmpeg](https://ffmpeg.org/) on your `PATH` (used by pydub to read audio). An NVIDIA GPU is optional but much faster.
+**Output**
+- ZIP with `wavs/` + `metadata.json`.
+- Push to the Hugging Face Hub as parquet, to your own repo or as a pull request. **Many tasks or batches can be pushed to the same repo**: each one writes its own files, and the dataset card keeps a table of everything pushed.
+
+## Quick start
+
+**Requirements:** Python 3.10 or newer, and [FFmpeg](https://ffmpeg.org/download.html) on your `PATH`. An NVIDIA GPU is optional but makes recognition much faster.
 
 ```bash
+git clone https://github.com/PhonSobon/ASR-Tool-Annoation.git
+cd ASR-Tool-Annoation
+python -m venv .venv
+# Windows: .venv\Scripts\activate    macOS / Linux: source .venv/bin/activate
 pip install -r requirements.txt
+python app.py
 ```
 
-For GPU support, install the CUDA build of PyTorch from [pytorch.org](https://pytorch.org/get-started/locally/).
+Open **http://127.0.0.1:5000** in your browser.
+
+For GPU support, install the CUDA build of PyTorch from [pytorch.org](https://pytorch.org/get-started/locally/) before `pip install -r requirements.txt`.
 
 ### Model weights
 
-The model weights (`model.safetensors`, 1.28 GB) are too large for GitHub and are not in this repo. You can either:
+The model weights (`model.safetensors`, 1.28 GB) are not stored in this repository. Either:
 
-- **Download them once into the project folder** (recommended, works offline afterwards):
+- **Do nothing:** the app downloads the model from Hugging Face the first time you transcribe, or
+- **Download them once into the project** (works offline afterwards):
 
   ```bash
   python -c "from huggingface_hub import snapshot_download; snapshot_download('Darayut/Omnilingual-ASR-Khm', local_dir='models/Omnilingual-ASR-Khm')"
   ```
 
-- **Do nothing.** If `models/Omnilingual-ASR-Khm/model.safetensors` is missing, the app downloads the model from Hugging Face the first time you transcribe.
+To use another copy, set `OMNI_ASR_MODEL` to a Hugging Face repo id or to a folder with `model.safetensors`, `config.json` and `vocab.json`.
 
-To use a different copy, set the `OMNI_ASR_MODEL` environment variable to a Hugging Face repo id or a local folder containing `model.safetensors`, `config.json` and `vocab.json`.
+## How to use it
 
-## Usage
+### Annotate your own recordings
 
-```bash
-python app.py
-```
+1. **Upload & Crop:** add audio files, cut them (for example every 20 s) and fix the cuts on the waveform.
+2. Tick the files that are ready and **push them to a task**.
+3. **My Tasks → open the task:** press **Recognize all** to draft every transcript, then go through the packages. Fix the text, split dialogue into speaker turns and fill in the speaker and recording details.
+4. **Export task ZIP**, or **Push to Hugging Face**.
 
-Open http://127.0.0.1:5000, then:
+### Clean a Hugging Face dataset
 
-1. **Upload & Crop:** drop or choose one or more audio files.
-2. Click an audio, pick a cut length and click **✂ Cut selected audio** (or **✂ Cut all audio**).
-3. Fix its cuts on the waveform (drag to crop, drag a line to move it, double-click to merge, **Del** to leave a crop out).
-4. Check the boxes of the audio that are ready (cut audio are ticked automatically), enter a task name and click **Push N selected audio to task →**. The other audio stay on Upload & Crop.
-5. **My Tasks:** click the task card. Click **Crop 1**, listen, press **↻ Recognize** (or **▶ Recognize all crops** once), fix the text, then **Next crop →**.
-6. Click **⬇ Export task ZIP**.
+1. **Dataset Cleaning:** enter a dataset id such as `seanghay/khmer_mpwt_speech` and click **Load**.
+2. Choose the split, the audio and text columns, and for a big dataset the **rows per batch** (for example 200) and how many batches to create.
+3. The clips are imported and checked by the ASR. **Accept passing clips** in one click, then review the rest, worst first.
+4. **Push to Hugging Face.** Every batch goes to the same repo and together they form one dataset.
 
-### Cut editor controls (Upload & Crop)
+The **[user guide](docs/user-guide.md)** explains every page, the quality checks, the output formats and all keyboard shortcuts.
 
-| Action | How |
-|---|---|
-| Crop a range into one segment | Drag across the waveform |
-| Select a crop / move playhead | Click the waveform; ↑ / ↓ or ⏮ / ⏭ for previous / next crop |
-| Step the playhead | ← / → (Shift for 1 s steps) |
-| Play / pause | **Space** or ▶ |
-| Cut the selected crop | **S** or ✂ Cut at playhead |
-| Move a boundary | Drag the dark line (snaps to word gaps; hold Alt to place freely) |
-| Merge two crops | Double-click the line between them |
-| Undo / redo | **Ctrl+Z** / **Ctrl+Y**, or ↶ / ↷ |
-| Zoom | Timeline zoom slider, or Ctrl + mouse wheel |
-| Leave a crop out | **Del** (again to restore) |
+## Output
 
-On the task page: **Ctrl+Enter** play / pause the crop, **Ctrl+↓** / **Ctrl+↑** next / previous crop, click the crop's waveform to play from there.
-
-### Export format
-
-**⬇ Export task ZIP** downloads `<task name>/` with one folder like this per audio (skipped packages and segments are left out). A package cut into dialogue segments gives one clip per segment (`<audio>_0003_01`, `_02`, …), and each entry also carries `speaker` (age group, gender, native speaker) and `audio_info` when they are filled in:
-
-```
-<audio name>/
-├── wavs/
-│   ├── <audio name>_0001.wav
-│   ├── <audio name>_0002.wav
-│   └── ...
-└── metadata.json
-```
-
-`metadata.json` is a UTF-8 list with one entry per segment (deleted segments are left out). `start`/`end` are seconds in the original recording:
+A task ZIP holds one folder per recording with `wavs/` and a `metadata.json` like this:
 
 ```json
-[
-  {
-    "id": "news_0001",
-    "file": "wavs/news_0001.wav",
-    "start": 0.0,
-    "end": 8.0,
-    "duration": 8.0,
-    "role": "Narrator",
-    "text": "សូមគោរពជូនលោកប្រធានការិយាល័យ ១២",
-    "text_normalized": "សូម គោរព ជូន លោក ប្រធាន ការិយាល័យ 12"
-  }
-]
+{
+  "id": "news_0001",
+  "file": "wavs/news_0001.wav",
+  "start": 0.0, "end": 8.0, "duration": 8.0,
+  "role": "Narrator",
+  "text": "សូមគោរពជូនលោកប្រធានការិយាល័យ ១២",
+  "text_normalized": "សូម គោរព ជូន លោក ប្រធាន ការិយាល័យ 12"
+}
 ```
 
-## Project layout
+On the Hugging Face Hub, each task or batch is stored as `data/<split>-<task or rows>-*.parquet` with an `audio` column the dataset viewer can play. See [Output formats](docs/user-guide.md#output-formats) for every column.
 
-```
-app.py                      Entry point: `python app.py` (or `flask run`)
-backend/                    Flask backend (Python package)
-├── __init__.py             create_app() - application factory
-├── config.py               Settings: paths, sample rate, upload limit, model (env-overridable)
-├── errors.py               JSON error responses ({"error": ...})
-├── routes/                 HTTP layer, one blueprint per feature
-│   ├── pages.py            GET /  (web UI)
-│   ├── audios.py           /api/audios: list, upload, open, autosave, cut length, delete
-│   ├── media.py            /api/audios/<id>/audio, /peaks
-│   ├── tasks.py            /api/tasks: push to task, list, open, delete
-│   ├── asr.py              /api/audios/<id>/transcribe, /api/text/normalize
-│   └── export.py           /api/audios/<id>/export, /api/tasks/<id>/export
-├── services/               Logic, independent of HTTP
-│   ├── audios.py           Audio folders: full.wav, meta.json (task_id), state.json
-│   ├── tasks.py            Tasks: a named batch of audio (data/tasks/<id>.json)
-│   ├── audio.py            Convert uploads, cut PCM, waveform peaks, WAV encoding
-│   ├── recognizer.py       Loads the ASR model once, one inference at a time
-│   ├── text.py             Khmer normalization (khmercut, digits)
-│   └── exporter.py         Dataset ZIP: wavs/ + metadata.json (one audio or a whole task)
-└── asr/omni_asr.py         Omnilingual-ASR-Khm in plain PyTorch + CTC word timings
-frontend/                   Web UI (served by Flask, no build step)
-├── templates/
-│   ├── base.html           Page shell: head, header, sidebar, breadcrumb
-│   ├── index.html          Puts the pages and scripts together
-│   ├── partials/           header, sidebar, breadcrumb, editor (cut editor of Upload & Crop)
-│   └── pages/              tasks.html (My Tasks), upload.html (Upload & Crop), task.html (crops of one task)
-└── static/
-    ├── css/                base, layout, tasks, audio-list, editor, crops, package
-    └── js/                 Loaded in this order (they share top-level variables):
-                            api, format, state, autosave, session (open audio), waveform, editor,
-                            audio-list, upload (Upload & Crop), tasks (My Tasks), crops (Task Batch List),
-                            package (package page), router, main
-tests/                      pytest API tests (temporary data folder, ASR mocked)
-models/Omnilingual-ASR-Khm/ config.json, vocab.json (weights downloaded separately)
-data/sessions/              One folder per uploaded audio (created at runtime, not in git)
-data/tasks/                 One JSON file per task
-```
+## Configuration
 
-### API
+All settings are optional environment variables.
 
-| Method | URL | Purpose |
+| Variable | Default | Meaning |
 |---|---|---|
-| GET | `/api/audios` | Audio still in Upload & Crop (`?task=<id>`: the audio of a task) |
-| POST | `/api/audios` | Upload one audio file (`multipart`: `audio`) |
-| GET / DELETE | `/api/audios/<id>` | Open an audio with its segments / delete it |
-| PUT | `/api/audios/<id>/state` | Autosave segments |
-| POST | `/api/audios/<id>/recut` | Cut into fixed-length segments `{chunk_seconds}` |
-| GET | `/api/audios/<id>/audio`, `/peaks` | Audio for the player / waveform (`?buckets=n` for a thumbnail) |
-| POST | `/api/audios/<id>/transcribe` | Recognize one segment `{start, end}` |
-| POST | `/api/audios/<id>/export` | Download one audio's dataset ZIP (API only) |
-| GET | `/api/tasks` | List tasks (My Tasks) |
-| POST | `/api/tasks` | Push audio into a new task `{name, audio_ids}` |
-| GET / DELETE | `/api/tasks/<id>` | Open a task with its audio and their crops / delete it (and its audio) |
-| GET | `/api/tasks/<id>/export` | Download the whole task as one ZIP |
-| POST | `/api/text/normalize` | Normalized text for `{text}` |
+| `OMNI_ASR_MODEL` | `models/Omnilingual-ASR-Khm` if the weights are there, else the Hugging Face repo | The ASR model |
+| `ASR_DATA_DIR` | `data/` | Where uploads, tasks and imported datasets are stored |
+| `HF_TOKEN` | the login from `hf auth login` | Hugging Face token (a token typed in the app is used instead) |
+| `ANNOTATOR_NAME` | the computer's user name | Saved as the annotator / reviewer of your changes |
+| `CER_PASS` / `CER_BAD` | `0.10` / `0.50` | Dataset cleaning: CER limits for *passed* / *likely bad* |
+| `HOST` / `PORT` | `127.0.0.1` / `5000` | Where the web server listens |
+| `FLASK_DEBUG` | `0` | `1` turns on the Flask debugger (only on your own computer) |
 
-### Configuration
+### Security
 
-| Variable | Default |
-|---|---|
-| `OMNI_ASR_MODEL` | `models/Omnilingual-ASR-Khm` if the weights are there, else the Hugging Face repo |
-| `ASR_DATA_DIR` | `data/` |
-| `ANNOTATOR_NAME` | the computer's user name (saved as Annotator on the packages you edit) |
-| `HOST` / `PORT` | `127.0.0.1` / `5000` |
-| `FLASK_DEBUG` | `1` (set `0` to turn off the debugger) |
+The tool has **no login**. Anyone who can open its web page can read, change and delete the data. Keep the default `HOST=127.0.0.1` (only your computer), or run it only on a network you trust. Never turn on `FLASK_DEBUG=1` when other people can reach the server: the debugger can run any code. Hugging Face tokens typed into the app are used for that request only and are not saved.
 
-### Tests
+## Project structure
+
+```
+app.py                  Entry point (python app.py)
+backend/                Flask backend
+├── routes/             HTTP API, one blueprint per feature (see docs/api.md)
+├── services/           Logic: audio, tasks, export, text normalization, quality checks,
+│                       Hugging Face Hub (read / write parquet), background jobs
+└── asr/omni_asr.py     Omnilingual-ASR-Khm in plain PyTorch, with CTC word timings
+frontend/               Web UI served by Flask, plain HTML / CSS / JavaScript, no build step
+tests/                  pytest tests (temporary data folder, ASR and Hub mocked)
+docs/                   User guide and API reference
+models/                 Model config and vocabulary (weights downloaded separately)
+data/                   Created at runtime, not in git
+```
+
+The [HTTP API](docs/api.md) can also be used from scripts.
+
+## Contributing
+
+Contributions are welcome: bug reports, Khmer text-normalization rules, new quality checks, translations of the interface, and documentation. See **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
 ```bash
 pip install -r requirements-dev.txt
@@ -182,7 +143,7 @@ python -m pytest
 
 ## About the model
 
-[Darayut/Omnilingual-ASR-Khm](https://huggingface.co/Darayut/Omnilingual-ASR-Khm) is a 0.3B-parameter Khmer CTC model:
+[Darayut/Omnilingual-ASR-Khm](https://huggingface.co/Darayut/Omnilingual-ASR-Khm) is a 0.3B-parameter Khmer CTC model (MIT license):
 
 - **Encoder:** Meta's Omnilingual ASR 300M (wav2vec 2.0) encoder.
 - **Vocabulary:** 2,233 Khmer grapheme clusters, such as `ភ្ញី` as one unit.
@@ -197,26 +158,28 @@ Results reported on the model card:
 | test_fleurs | 12.03% | 25.66% |
 | test_slr42 | 14.82% | 48.62% |
 
-The official inference code depends on [fairseq2](https://github.com/facebookresearch/fairseq2), which has no native Windows build. `backend/asr/omni_asr.py` re-implements the same architecture in plain PyTorch, following the [model's source repository](https://github.com/NDarayut/Omnilingual-ASR-Khm). It loads the published weights with a strict check, so every tensor in the checkpoint must match.
+The official inference code depends on [fairseq2](https://github.com/facebookresearch/fairseq2), which has no native Windows build. `backend/asr/omni_asr.py` re-implements the same architecture in plain PyTorch, following the [model's source repository](https://github.com/NDarayut/Omnilingual-ASR-Khm), and loads the published weights with a strict check.
 
 ## References
 
-### Models and code
-- **Omnilingual-ASR-Khm** (model used by this tool): https://huggingface.co/Darayut/Omnilingual-ASR-Khm (MIT license)
-- **Omnilingual-ASR-Khm source code** (training, tokenizer, reference inference): https://github.com/NDarayut/Omnilingual-ASR-Khm
-- **Meta Omnilingual ASR** (base encoder `omniASR_CTC_300M`): https://github.com/facebookresearch/omnilingual-asr
-- **fairseq2** (Meta's sequence modeling toolkit the original model is built on): https://github.com/facebookresearch/fairseq2
-- **khmercut** (Khmer word segmentation, by Seanghay Yath): https://github.com/seanghay/khmercut
+**Models and code**
+- Omnilingual-ASR-Khm: https://huggingface.co/Darayut/Omnilingual-ASR-Khm · source: https://github.com/NDarayut/Omnilingual-ASR-Khm
+- Meta Omnilingual ASR (base encoder `omniASR_CTC_300M`): https://github.com/facebookresearch/omnilingual-asr
+- fairseq2: https://github.com/facebookresearch/fairseq2
+- khmercut (Khmer word segmentation, by Seanghay Yath): https://github.com/seanghay/khmercut
 
-### Papers
+**Papers**
 - Baevski, A., Zhou, H., Mohamed, A., & Auli, M. (2020). *wav2vec 2.0: A Framework for Self-Supervised Learning of Speech Representations.* NeurIPS 2020. https://arxiv.org/abs/2006.11477
 - Graves, A., Fernández, S., Gomez, F., & Schmidhuber, J. (2006). *Connectionist Temporal Classification: Labelling Unsegmented Sequence Data with Recurrent Neural Networks.* ICML 2006.
-- Nozaki, J., & Komatsu, T. (2021). *Relaxing the Conditional Independence Assumption of CTC-based ASR by Conditioning on Intermediate Predictions* (self-conditioned CTC). Interspeech 2021. https://arxiv.org/abs/2104.02724
+- Nozaki, J., & Komatsu, T. (2021). *Relaxing the Conditional Independence Assumption of CTC-based ASR by Conditioning on Intermediate Predictions.* Interspeech 2021. https://arxiv.org/abs/2104.02724
 - Meta AI Omnilingual ASR team (2025). *Omnilingual ASR: Open-Source Multilingual Speech Recognition for 1600+ Languages.* https://ai.meta.com/research/publications/omnilingual-asr-open-source-multilingual-speech-recognition-for-1600-languages/
 
-### Libraries
-[Flask](https://flask.palletsprojects.com/) · [khmercut](https://github.com/seanghay/khmercut) · [PyTorch](https://pytorch.org/) · [safetensors](https://github.com/huggingface/safetensors) · [huggingface_hub](https://github.com/huggingface/huggingface_hub) · [pydub](https://github.com/jiaaro/pydub) · [NumPy](https://numpy.org/) · [Requests](https://requests.readthedocs.io/) · [Noto Sans Khmer](https://fonts.google.com/noto/specimen/Noto+Sans+Khmer)
+**Libraries:** [Flask](https://flask.palletsprojects.com/) · [PyTorch](https://pytorch.org/) · [safetensors](https://github.com/huggingface/safetensors) · [huggingface_hub](https://github.com/huggingface/huggingface_hub) · [PyArrow](https://arrow.apache.org/docs/python/) · [pydub](https://github.com/jiaaro/pydub) · [soundfile](https://github.com/bastibe/python-soundfile) · [soxr](https://github.com/dofuuz/python-soxr) · [NumPy](https://numpy.org/) · [PyYAML](https://pyyaml.org/) · [khmercut](https://github.com/seanghay/khmercut) · [Noto Sans Khmer](https://fonts.google.com/noto/specimen/Noto+Sans+Khmer)
 
 ## Acknowledgements
 
-Thanks to **Darayut** for training and publishing the Khmer model and its source code, and to **Meta AI** for releasing the Omnilingual ASR encoder.
+Thanks to **Darayut** for training and publishing the Khmer model and its source code, to **Seanghay Yath** for khmercut and Khmer speech datasets, and to **Meta AI** for releasing the Omnilingual ASR encoder.
+
+## License
+
+[MIT](LICENSE) © 2026 Phon Sobon. The ASR model is published separately under its own MIT license by its author.

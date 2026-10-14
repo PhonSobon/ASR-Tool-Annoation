@@ -81,3 +81,21 @@ def build_task_zip(task_name, items, sr, min_seconds=0.1):
             _write_audio(z, f"{task_name}/{name}", name, pcm, sr, segments, min_seconds)
     buf.seek(0)
     return buf
+
+
+def build_dataset_zip(name, rows, sr):
+    """A cleaned Hub dataset: <name>/wavs/<clip id>.wav + <name>/metadata.json.
+    `rows` yields (clip id, pcm, record) from services.datasets.output_rows."""
+    buf, items = io.BytesIO(), []
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for clip_id, pcm, rec in rows:
+            z.writestr(f"{name}/wavs/{clip_id}.wav", audio.wav_bytes(pcm, sr))
+            items.append({**rec["extra"], "id": clip_id, "file": f"wavs/{clip_id}.wav", "duration": rec["duration"],
+                          "text": rec["text"], "text_normalized": rec["norm"],
+                          "original_text": rec["original_text"], "asr_text": rec["asr_text"], "cer": rec["cer"],
+                          "status": rec["status"], **({"reason": rec["reason"]} if rec["reason"] else {}),
+                          "flags": rec["flags"], "source_index": rec["source_index"],
+                          **({"part": rec["part"]} if rec["part"] else {})})
+        z.writestr(f"{name}/metadata.json", json.dumps(items, ensure_ascii=False, indent=2))
+    buf.seek(0)
+    return buf

@@ -165,3 +165,60 @@ def test_me_uses_computer_user_or_setting(client, app):
     assert client.get("/api/me").json["name"]
     app.config["ANNOTATOR_NAME"] = "Sobon"
     assert client.get("/api/me").json["name"] == "Sobon"
+
+
+def _wait(client, url):
+    import time
+
+    for _ in range(200):
+        job = client.get(url).json["job"]
+        if not job["running"]:
+            return job
+        time.sleep(0.05)
+    raise AssertionError("job did not finish")
+
+
+def test_push_task_to_hub(client, monkeypatch):
+    from pathlib import Path
+
+    import pyarrow.parquet as pq
+
+    from backend.services import hub
+
+    a = upload(client, "talk.wav")
+    info = {"language": "Khmer", "accent": "Phnom Penh", "challenges": ["Noise", "Fast"]}
+    client.put(f"/api/audios/{a['id']}/state", json={"segments": [
+        {"start": 0, "end": 4, "info": info, "speakers": {"Journalist": {"age": "18-35", "gender": "Male"}},
+         "parts": [{"start": 0, "end": 2, "role": "Journalist", "text": "លេខ ១០", "norm": ""},
+                   {"start": 2, "end": 4, "role": "Guest", "text": "b", "norm": "b!"}]},
+        {"start": 4, "end": 8, "parts": [{"start": 4, "end": 6, "role": "Guest", "text": "c"},
+                                         {"start": 6, "end": 8, "role": "Guest", "text": ""}]},   # not completed
+        {"start": 8, "end": 12, "text": "skipped", "deleted": True}]})
+    task = client.post("/api/tasks", json={"name": "T", "audio_ids": [a["id"]]}).json
+    pushed = {}
+
+    def fake_push(folder, repo_id, split, card_fn, token, private, create_pr, message, prefix=None):
+        assert prefix == f"{split}-task-{task['id']}"   # its own files: other tasks in the repo stay
+        pushed.update(table=pq.read_table(next(Path(folder, "data").glob(f"{prefix}-00000-of-00001.parquet"))),
+                      card=card_fn("", {split}), repo=repo_id)
+        return "https://huggingface.co/datasets/me/t/commit/1"
+
+    monkeypatch.setattr(hub, "push", fake_push)
+    url = f"/api/tasks/{task['id']}"
+    assert client.post(f"{url}/hub-push", json={"repo_id": "not a repo"}).status_code == 400
+    assert client.post(f"{url}/hub-push", json={"repo_id": "me/t"}).status_code == 200
+    job = _wait(client, f"{url}/job")
+    assert job["error"] is None and job["result"]["url"].endswith("/commit/1")
+    rows = pushed["table"].to_pylist()
+    assert [r["id"] for r in rows] == ["talk_0001_01", "talk_0001_02"]
+    assert "10" in rows[0]["text_normalized"] and rows[1]["text_normalized"] == "b!"
+    assert (rows[0]["role"], rows[0]["speaker_gender"], rows[0]["accent"], rows[0]["challenges"]) == \
+        ("Journalist", "Male", "Phnom Penh", "Noise, Fast")
+    assert rows[1]["speaker_gender"] is None and rows[0]["duration"] == 2.0 and rows[0]["source_audio"] == "talk"
+    assert rows[0]["audio"]["bytes"][:4] == b"RIFF" and "| task T | train | 2 |" in pushed["card"]
+    assert rows[0]["task"] == "T"
+    assert client.get(url).json["last_push"]["repo"] == "me/t"
+
+    client.post(f"{url}/hub-push", json={"repo_id": "me/t", "include": "with_text", "split": "test"})
+    _wait(client, f"{url}/job")
+    assert [r["id"] for r in pushed["table"].to_pylist()] == ["talk_0001_01", "talk_0001_02", "talk_0002_01"]

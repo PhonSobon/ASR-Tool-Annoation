@@ -12,3 +12,8 @@ models/**/*.safetensors
 models/**/.cache/
 models/**/.gitattributes
 .pytest_cache/
+
+# Local settings and editors
+.env
+.idea/
+*.egg-info/

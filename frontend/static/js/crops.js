@@ -58,6 +58,8 @@ async function openTask(id) {
   pkgPage = 1;
   setTaskStatus("");
   await showList();
+  $("tpJob").hidden = true; tpWasRunning = false;
+  tpPoll();                // a push to the Hub of this task may still be running
   return curTask;
 }
 
