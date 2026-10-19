@@ -6,6 +6,7 @@ let ds = null;               // GET /api/datasets/<id>
 let dsTab = "todo", dsPage = 1, dsPer = 20;
 let rvN = -1;                // clip in the review panel
 let rvWave = null;           // decoded samples of that clip (Float32Array) + sample rate
+let rvCut = null;            // where "Cut here" cuts (s in the clip file): set by a click on the waveform or a pause
 let rvTextTimer = null, rvTextPending = false;
 let rvNormTimer = null, rvNormPending = false, rvAutoTimer = null;
 let jobTimer = null, jobTick = 0, lastJobRunning = false;
@@ -129,7 +130,7 @@ $("btnBackDs").onclick = () => { location.hash = "#/datasets"; };
 // ---------- review panel ----------
 async function showClip(n, play) {
   await flushReview();
-  rvN = n;
+  rvN = n; rvCut = null;
   const order = dsOrder(), k = order.indexOf(n);
   if (k >= 0) dsPage = Math.floor(k / dsPer) + 1;
   $("rv").hidden = false;
@@ -235,6 +236,10 @@ function drawWave() {
   g.fillRect(0, 0, x(s), h); g.fillRect(x(e), 0, w - x(e), h);
   g.fillStyle = "#f59e0b";                             // where the other parts of the row are cut
   otherParts(it).forEach(o => clipTrim(o).forEach(t => { if (t > 0 && t < dur) g.fillRect(x(t) - 1, 0, 2, h); }));
+  if (rvCut != null) {                                 // where "Cut here" cuts
+    g.strokeStyle = "#10b981"; g.lineWidth = 2; g.setLineDash([4, 3]);
+    g.beginPath(); g.moveTo(x(rvCut), 0); g.lineTo(x(rvCut), h); g.stroke(); g.setLineDash([]);
+  }
   g.fillStyle = "#ef4444"; g.fillRect(x(rvAudio.currentTime || s) - 1, 0, 2, h);   // playhead
 }
 
@@ -250,7 +255,13 @@ function playClip() {
   if (rvAudio.currentTime < s || rvAudio.currentTime >= e - 0.02) rvAudio.currentTime = s;
   rvAudio.play().catch(() => {});
 }
-const toggleClip = () => rvAudio.paused ? playClip() : rvAudio.pause();
+const canCut = t => { const [s, e] = clipTrim(ds.items[rvN]); return t >= s + 0.1 && t <= e - 0.1; };
+const toggleClip = () => {
+  if (rvAudio.paused) return playClip();
+  rvAudio.pause();
+  if (canCut(rvAudio.currentTime)) rvCut = rvAudio.currentTime;   // paused where to cut
+  drawWave();
+};
 rvAudio.ontimeupdate = () => {
   if (rvN >= 0 && rvAudio.currentTime >= clipTrim(ds.items[rvN])[1]) rvAudio.pause();
   updateTime();
@@ -265,7 +276,9 @@ $("rvPlay").onclick = toggleClip;
 $("rvCanvas").onclick = e => {
   if (rvN < 0) return;
   const r = e.target.getBoundingClientRect(), [s, en] = clipTrim(ds.items[rvN]);
-  rvAudio.currentTime = Math.max(s, Math.min(en - 0.05, (e.clientX - r.left) / r.width * ds.items[rvN].duration));
+  const t = Math.max(s, Math.min(en - 0.05, (e.clientX - r.left) / r.width * ds.items[rvN].duration));
+  rvCut = canCut(t) ? t : null;
+  rvAudio.currentTime = t;
   playClip();
 };
 window.addEventListener("resize", () => { if (!$("pageDataset").hidden) drawWave(); });
@@ -406,8 +419,8 @@ async function recheck(ns) {   // the ASR on these clips now (one at a time); th
 
 $("rvSplit").onclick = async () => {
   if (rvN < 0) return;
-  const n = rvN, [s, e] = clipTrim(ds.items[n]), at = rvAudio.currentTime;
-  if (!(at >= s + 0.1 && at <= e - 0.1))
+  const n = rvN, at = rvCut ?? rvAudio.currentTime;   // the marker, not the playhead that moved on while playing
+  if (!canCut(at))
     return notify("Click the waveform (or play and pause) where the clip should be cut, then press “Cut here”.", "info");
   rvAudio.pause();
   try {
@@ -439,6 +452,12 @@ $("rvRecheck").onclick = async () => {
   await recheck([rvN]);
   $("rvRecheck").disabled = false;
   if (rvN >= 0) renderDiff();
+};
+$("rvDownload").onclick = () => {
+  if (rvN < 0) return;
+  const a = document.createElement("a");
+  a.href = `/api/datasets/${ds.id}/items/${rvN}/audio`;
+  a.click();
 };
 ["rvStart", "rvEnd"].forEach(id => $(id).onchange = () => setTrim([+$("rvStart").value, +$("rvEnd").value]));
 

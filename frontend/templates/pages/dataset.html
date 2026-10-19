@@ -67,8 +67,9 @@
         <button class="link" id="rvAutoTrim" title="Cut the silence at both ends (T)">Trim silence</button>
         <button class="link" id="rvNoTrim">Keep whole clip</button>
         <span class="sep"></span>
-        <button class="sec small" id="rvSplit" title="Cut the clip in two at the playhead (S) - click the waveform first">{{ icon("scissors") }} Cut here</button>
+        <button class="sec small" id="rvSplit" title="Cut the clip in two at the green marker (S) - click the waveform (or pause) where to cut">{{ icon("scissors") }} Cut here</button>
         <button class="sec small" id="rvJoin" title="Join this part with the next part of the same row" hidden>Join next part</button>
+        <button class="sec small" id="rvDownload" title="Download this clip as WAV (its trim applied)">{{ icon("download") }} Download</button>
       </div>
       <div class="rv-texts">
         <div><div class="rv-lab">Dataset text</div><div class="rv-diff" id="rvOrig"></div></div>
@@ -95,7 +96,7 @@
         </select>
         <button class="stop" id="rvReject" title="Reject (R)">{{ icon("x") }} Reject</button>
       </div>
-      <div class="muted rv-keys">Keys: <b>Space</b> play · <b>A</b> accept · <b>U</b> use ASR text · <b>R</b> reject · <b>T</b> trim silence · <b>S</b> cut at the playhead · <b>J/K</b> next/previous · <b>E</b> edit text · <b>Ctrl+Enter</b> accept while typing</div>
+      <div class="muted rv-keys">Keys: <b>Space</b> play · <b>A</b> accept · <b>U</b> use ASR text · <b>R</b> reject · <b>T</b> trim silence · <b>S</b> cut at the green marker · <b>J/K</b> next/previous · <b>E</b> edit text · <b>Ctrl+Enter</b> accept while typing</div>
     </div>
 
     {# ---------- clip list ---------- #}

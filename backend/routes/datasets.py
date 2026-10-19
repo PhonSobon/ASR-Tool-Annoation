@@ -1,4 +1,5 @@
 """Dataset cleaning: import a Hugging Face dataset, check it automatically, review clips, export / push to the Hub."""
+import io
 import re
 import shutil
 
@@ -170,6 +171,20 @@ def clip(dataset_id, n):
     if not 0 <= n < len(items):
         return jsonify(error="Clip not found"), 404
     return send_file(datasets.clip_path(dataset_id, items[n]), mimetype="audio/wav", conditional=True)
+
+
+@bp.get("/datasets/<dataset_id>/items/<int:n>/audio")
+def download_item(dataset_id, n):
+    """?trim=0 for the whole clip file -> <split>_<row>[_<part>].wav of one clip, its trim applied."""
+    meta, items = datasets.get_meta(dataset_id), datasets.load_items(dataset_id)
+    if not 0 <= n < len(items):
+        return jsonify(error="Clip not found"), 404
+    it, sr = items[n], current_app.config["SAMPLE_RATE"]
+    pcm = audio.read_wav(datasets.clip_path(dataset_id, it)) if request.args.get("trim") == "0" \
+        else datasets.clip_pcm(dataset_id, it)
+    name = f"{meta['split']}_{it['idx']:06d}" + (f"_{it['part']:02d}" if it.get("part") else "")
+    return send_file(io.BytesIO(audio.wav_bytes(pcm, sr)), mimetype="audio/wav", as_attachment=True,
+                     download_name=f"{name}.wav")
 
 
 @bp.patch("/datasets/<dataset_id>/items/<int:n>")

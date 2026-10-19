@@ -36,6 +36,7 @@ The web UI talks to the Flask backend through this JSON API. You can use it from
 | GET | `/api/datasets/<id>/job` | Progress of the import / check / push job |
 | POST | `/api/datasets/<id>/stop` | Stop that job |
 | GET | `/api/datasets/<id>/clips/<n>` | One clip as WAV |
+| GET | `/api/datasets/<id>/items/<n>/audio` | Download one clip as `<split>_<row>[_<part>].wav`, its trim applied (`?trim=0` = whole clip file) |
 | PATCH | `/api/datasets/<id>/items/<n>` | Review a clip `{text?, norm?, status?, reason?, trim?, reviewer?}` |
 | POST | `/api/datasets/<id>/items/<n>/split` | Cut a clip in two `{at}` (seconds in its clip file) |
 | POST | `/api/datasets/<id>/items/<n>/join` | Join a part with the next part of its row |

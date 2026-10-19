@@ -2,6 +2,7 @@
 import io
 import json
 import time
+import wave
 import zipfile
 from pathlib import Path
 
@@ -148,6 +149,14 @@ def test_split_and_join(client, ds, monkeypatch):
     assert [(m["id"], m["text"], m["duration"]) for m in meta] == [("train_000002_01", "សួស្តី", 1.2),
                                                                     ("train_000002_02", "ពិភពលោក", 1.8)]
     assert meta[1]["part"] == 2 and meta[1]["source_index"] == 2
+
+    r = client.get(f"/api/datasets/{ds}/items/3/audio")       # one clip, its trim applied
+    assert r.status_code == 200 and "train_000002_02.wav" in r.headers["Content-Disposition"]
+    with wave.open(io.BytesIO(r.data)) as w:
+        assert w.getnframes() == int(1.8 * 16000)
+    with wave.open(io.BytesIO(client.get(f"/api/datasets/{ds}/items/3/audio?trim=0").data)) as w:
+        assert w.getnframes() == 3 * 16000
+    assert client.get(f"/api/datasets/{ds}/items/99/audio").status_code == 404
 
     assert client.post(f"/api/datasets/{ds}/items/3/join").status_code == 400   # the last part
     it = client.post(f"/api/datasets/{ds}/items/2/join").json
