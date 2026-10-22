@@ -176,6 +176,10 @@ The official inference code depends on [fairseq2](https://github.com/facebookres
 
 **Libraries:** [Flask](https://flask.palletsprojects.com/) · [PyTorch](https://pytorch.org/) · [safetensors](https://github.com/huggingface/safetensors) · [huggingface_hub](https://github.com/huggingface/huggingface_hub) · [PyArrow](https://arrow.apache.org/docs/python/) · [pydub](https://github.com/jiaaro/pydub) · [soundfile](https://github.com/bastibe/python-soundfile) · [soxr](https://github.com/dofuuz/python-soxr) · [NumPy](https://numpy.org/) · [PyYAML](https://pyyaml.org/) · [khmercut](https://github.com/seanghay/khmercut) · [Noto Sans Khmer](https://fonts.google.com/noto/specimen/Noto+Sans+Khmer)
 
+## Author
+
+**Phon Sobon** · [@PhonSobon](https://github.com/PhonSobon) · [phon.sobon02@gmail.com](mailto:phon.sobon02@gmail.com)
+
 ## Acknowledgements
 
 Thanks to **Darayut** for training and publishing the Khmer model and its source code, to **Seanghay Yath** for khmercut and Khmer speech datasets, and to **Meta AI** for releasing the Omnilingual ASR encoder.
