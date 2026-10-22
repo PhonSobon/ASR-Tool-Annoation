@@ -34,7 +34,7 @@
         <button class="sec" id="btnRecAll" title="Recognize every package that has no text yet">{{ icon("recognize") }} Recognize all</button>
         <button class="stop" id="btnRecStop" disabled>{{ icon("stop") }} Stop</button>
         <button class="sec" id="btnExportTask" title="Download every package of this task as one ZIP">{{ icon("download") }} Export task ZIP</button>
-        <button id="btnTaskPush" title="Upload the completed packages to a Hugging Face dataset repo">{{ icon("upload") }} Push to Hugging Face</button>
+        <button id="btnTaskPush" hidden title="Upload the completed packages to a Hugging Face dataset repo">{{ icon("upload") }} Push to Hugging Face</button>
         <span class="muted" id="taskStatus"></span>
       </div>
       <div class="job" id="tpJob" hidden>
@@ -80,6 +80,7 @@
         <span class="badge" id="pkgState"></span>
         <span style="flex:1"></span>
         <span class="muted">Task ID: <span id="pkgTaskId"></span></span>
+        <button class="pkg-complete" id="pkgCompleteTop"></button>
       </div>
       <div class="pkg-bar-row">
         <span class="muted" id="pkgWhere"></span>
@@ -176,7 +177,8 @@
       <span class="muted" id="pkgMissing"></span>
       <span style="flex:1"></span>
       <span class="muted" id="cwSave"></span>
-      <button id="pkgDoneNext">Next package {{ icon("arrow-right") }}</button>
+      <button class="sec" id="pkgDoneNext">Next package {{ icon("arrow-right") }}</button>
+      <button class="pkg-complete" id="pkgComplete"></button>
     </div>
 
     <dialog id="specDialog" class="spec">
@@ -206,15 +208,10 @@
     </div>
     <div class="form-grid push-grid">
       <label class="fld"><span>Split</span><input id="tpSplit" value="train"></label>
-      <label class="fld"><span>Packages</span>
-        <select id="tpInclude">
-          <option value="done">Completed packages only</option>
-          <option value="with_text">Every segment with text</option>
-        </select></label>
-      <label class="fld"><span>Access token (write)</span>
-        <input id="tpToken" type="password" placeholder="Empty = your saved hf login" autocomplete="off"></label>
+      <label class="fld"><span id="tpTokenLabel">Access token (write)</span>
+        <input id="tpToken" type="password" autocomplete="off"></label>
     </div>
-    <label class="muted"><input type="checkbox" id="tpPrivate" checked> Private repo (only when it is created now)</label>
+    <label class="muted"><input type="checkbox" id="tpPrivate" checked> Private repo (needs your access token)</label>
     <p class="muted push-info" id="tpInfo"></p>
     <div class="confirm-actions">
       <button type="button" class="sec" id="tpCancel">Cancel</button>

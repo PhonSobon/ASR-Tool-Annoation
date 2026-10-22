@@ -1,23 +1,32 @@
 // Task page: push the annotated segments of the task to a Hugging Face dataset repo (POST /api/tasks/<id>/hub-push,
 // a background job on the server; its progress is polled here). One clip per segment, like the task ZIP.
-let tpTimer = null, tpWasRunning = false;
+// The button shows once every package is completed (or skipped). A private repo needs an access token.
+let tpTimer = null, tpWasRunning = false, tpRunning = false;
 
-// segments that go up: [count, seconds] (completed packages only, or every segment with text)
-function tpCount(include) {
-  const segs = crops.filter(c => include === "with_text" ? !c.seg.deleted : cropState(c) === "done")
-    .flatMap(c => liveParts(c.seg).filter(p => (p.text || "").trim()));
+function tpUpdateButton() {
+  const ready = crops.length && !crops.some(c => inTab(c, "todo")) && crops.some(c => cropState(c) === "done");
+  $("btnTaskPush").hidden = !ready && !tpRunning;
+  $("btnTaskPush").disabled = tpRunning;
+}
+
+// segments that go up: [count, seconds] (completed packages)
+function tpCount() {
+  const segs = crops.filter(c => cropState(c) === "done").flatMap(c => liveParts(c.seg).filter(p => (p.text || "").trim()));
   return [segs.length, segs.reduce((a, p) => a + p.end - p.start, 0)];
 }
 
+const tpPr = () => document.querySelector("input[name=tpMode]:checked").value === "pr";
+const tpNeedsToken = () => !tpPr() && $("tpPrivate").checked;
+
 function tpUpdateInfo() {
-  const include = $("tpInclude").value, [n, sec] = tpCount(include), pr = document.querySelector("input[name=tpMode]:checked").value === "pr";
-  const open = crops.filter(c => !isProcessed(c)).length;
+  const [n, sec] = tpCount(), pr = tpPr();
   $("tpPrivate").disabled = pr;
-  $("tpInfo").textContent = `${n} segments (${fmtHms(sec)}) are uploaded as parquet to data/${$("tpSplit").value || "train"}-task-${curTask.id}-*.parquet ` +
+  $("tpTokenLabel").classList.toggle("req", tpNeedsToken());
+  $("tpToken").placeholder = tpNeedsToken() ? "Required for a private repo (hf_…)" : "Empty = your saved hf login";
+  $("tpInfo").textContent = `${n} segments (${fmtHms(sec)}) of the completed packages are uploaded as parquet to data/${$("tpSplit").value || "train"}-task-${curTask.id}-*.parquet ` +
     `with audio, text, text_normalized, role, speaker and audio information.` +
     (pr ? " A pull request is opened — the owner of the repo decides whether to merge it."
-        : " Only this task's earlier files are replaced: other tasks pushed to the same repo stay, and the dataset card's batch table gets a row for this task.") +
-    (include === "done" && open ? `\n${open} package(s) are not completed yet and are left out.` : "");
+        : " Only this task's earlier files are replaced: other tasks pushed to the same repo stay, and the dataset card's batch table gets a row for this task.");
   $("tpOk").disabled = !n;
 }
 
@@ -40,14 +49,17 @@ $("btnTaskPush").onclick = async () => {
   }
 };
 document.querySelectorAll("input[name=tpMode]").forEach(r => r.onchange = tpUpdateInfo);
-$("tpInclude").onchange = tpUpdateInfo;
+$("tpPrivate").onchange = tpUpdateInfo;
 $("tpSplit").oninput = tpUpdateInfo;
 $("tpCancel").onclick = () => $("tpDialog").close();
 $("tpOk").onclick = async () => {
+  if (tpNeedsToken() && !$("tpToken").value.trim()) {
+    $("tpInfo").textContent = "⚠ A private repo needs your Hugging Face access token with write access (huggingface.co/settings/tokens).";
+    return $("tpToken").focus();
+  }
   try {
     await api(`/api/tasks/${curTask.id}/hub-push`, { repo_id: $("tpRepo").value, split: $("tpSplit").value,
-      include: $("tpInclude").value, private: $("tpPrivate").checked,
-      create_pr: document.querySelector("input[name=tpMode]:checked").value === "pr", token: $("tpToken").value });
+      include: "done", private: $("tpPrivate").checked, create_pr: tpPr(), token: $("tpToken").value });
     $("tpDialog").close();
     tpWasRunning = true;
     tpPoll();
@@ -80,7 +92,7 @@ async function tpPoll() {
     else { notify(job.message, "success", 0); curTask.last_push = { ...(curTask.last_push || {}), repo: $("tpRepo").value, split: $("tpSplit").value,
                                                                      pr: document.querySelector("input[name=tpMode]:checked").value === "pr" }; }
   }
-  tpWasRunning = running;
-  $("btnTaskPush").disabled = running;
+  tpWasRunning = tpRunning = running;
+  tpUpdateButton();
   if (running) tpTimer = setTimeout(tpPoll, 1000);
 }

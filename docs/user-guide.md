@@ -31,8 +31,9 @@ Every audio file has a checkbox, which is ticked automatically once the file is 
 
 **My Tasks** shows one card per task. Open a task to see its **Task Batch List**: one *package* per crop, named like `news_0003`, in **Todo** and **Processed** tabs, with search, an annotator filter and duration statistics.
 
-- **Recognize all** runs the local Khmer ASR on every package that has no text yet. Text you typed by hand is never overwritten.
+- **Recognize all** runs the local Khmer ASR on every package that has no text yet. Text you typed by hand is never overwritten. Recognized packages stay in **Todo** with the status **To check**.
 - **Claim Package** opens the next package in Todo.
+- A package moves to **Processed** only when you have checked it and press **✓ Complete** on the package page (or skip it). **Back to Todo** reopens a completed package; removing the text of a segment also puts it back in Todo.
 
 On the **package page**:
 
@@ -49,7 +50,7 @@ Every change is saved on the server as you work, so you can close the browser an
 ### 4. Export or push
 
 - **⬇ Export task ZIP** downloads WAV files and a `metadata.json` (see [Output formats](#output-formats)).
-- **⬆ Push to Hugging Face** uploads the task as parquet to a Hub dataset repo (see [Pushing to the Hub](#pushing-to-the-hugging-face-hub)). Choose whether only **completed packages** (every segment has text) or **every segment with text** goes up. Many tasks can be pushed to the same repo.
+- **⬆ Push to Hugging Face** appears once every package is completed (Todo is empty). It uploads the completed packages as parquet to a Hub dataset repo (see [Pushing to the Hub](#pushing-to-the-hugging-face-hub)). Many tasks can be pushed to the same repo. A **private** repo needs your access token (write).
 
 ---
 

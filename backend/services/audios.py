@@ -110,13 +110,22 @@ def get_segments(audio_id, meta=None):
     return state.get("segments") or propose_segments(meta["duration"], meta.get("chunk_seconds"))
 
 
+def is_processed(seg):
+    """The package is in the Processed tab of the task page: completed by the annotator, or skipped (the crop or
+    every dialogue segment of it deleted). Same rule as cropState() in crops.js."""
+    if seg.get("deleted") or (seg.get("parts") and all(p.get("deleted") for p in seg["parts"])):
+        return True
+    return bool(seg.get("completed"))
+
+
 def summary(audio_id):
     """List-row data: meta + segment progress."""
     meta = get_meta(audio_id)
     state = read_json(os.path.join(audio_dir(audio_id), "state.json"), {})
-    segs = [s for s in get_segments(audio_id, meta) if not s.get("deleted")]
-    done = sum(1 for s in segs if s.get("state") == "done" or (s.get("text") or "").strip())
-    return {**meta, "id": audio_id, "count": len(segs), "done": done, "todo": len(segs) - done,
+    every = get_segments(audio_id, meta)
+    segs = [s for s in every if not s.get("deleted")]
+    done = sum(1 for s in every if is_processed(s))
+    return {**meta, "id": audio_id, "count": len(segs), "done": done, "todo": len(every) - done,
             "updated": state.get("updated") or meta.get("created")}
 
 

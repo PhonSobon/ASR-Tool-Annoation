@@ -55,7 +55,8 @@ def stop(task_id):
 @bp.post("/<task_id>/hub-push")
 def hub_push(task_id):
     """{repo_id, split?, include?: "done" | "with_text", private?, create_pr?, token?}: upload the annotated segments
-    as parquet to a Hub dataset repo (background job; the result has the commit or pull request URL)."""
+    as parquet to a Hub dataset repo (background job; the result has the commit or pull request URL).
+    A private repo needs the token."""
     data, task = request.get_json(force=True, silent=True) or {}, tasks.summary(task_id)
     try:
         repo_id = hub.check_repo_id(data.get("repo_id"))
@@ -67,6 +68,8 @@ def hub_push(task_id):
     include = data.get("include") if data.get("include") in tasks.INCLUDE else "done"
     token = (data.get("token") or "").strip() or None
     private, create_pr = bool(data.get("private", True)), bool(data.get("create_pr"))
+    if private and not create_pr and not token:
+        return jsonify(error="A private repo needs a Hugging Face access token (write)"), 400
     sr = current_app.config["SAMPLE_RATE"]
 
     def run(job):

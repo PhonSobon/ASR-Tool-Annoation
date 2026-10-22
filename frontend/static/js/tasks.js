@@ -18,7 +18,7 @@ function renderTasks() {
   const shown = list.slice((taskPage - 1) * PER_PAGE, taskPage * PER_PAGE);
   $("taskTotal").textContent = `Total: ${list.length} items`;
   $("taskCards").innerHTML = shown.map(t => {
-    const pct = t.count ? Math.round(100 * t.done / t.count) : 0;
+    const pct = t.done + t.todo ? Math.round(100 * t.done / (t.done + t.todo)) : 0;
     return `<div class="task-card" tabindex="0" data-id="${esc(t.id)}">
       <div class="tc-tags"><span class="tag">Batch</span><span class="tag">AUDIO</span><span class="tag">Khmer ASR</span>
         <button class="tc-del" title="Delete this task" aria-label="Delete this task">${icon("trash")}</button></div>

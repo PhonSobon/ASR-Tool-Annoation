@@ -40,7 +40,7 @@ def test_recut_saves_segments(client, clip):
 
 
 def test_autosave_round_trip(client, clip):
-    segments = [{"id": 1, "start": 0, "end": 6, "text": "សួស្តី", "state": "done"},
+    segments = [{"id": 1, "start": 0, "end": 6, "text": "សួស្តី", "state": "done", "completed": True},
                 {"id": 2, "start": 6, "end": 12, "text": "", "state": "pending", "deleted": False}]
     assert client.put(f"/api/audios/{clip['id']}/state", json={"segments": segments}).status_code == 200
     a = client.get(f"/api/audios/{clip['id']}").json
@@ -188,12 +188,13 @@ def test_push_task_to_hub(client, monkeypatch):
     a = upload(client, "talk.wav")
     info = {"language": "Khmer", "accent": "Phnom Penh", "challenges": ["Noise", "Fast"]}
     client.put(f"/api/audios/{a['id']}/state", json={"segments": [
-        {"start": 0, "end": 4, "info": info, "speakers": {"Journalist": {"age": "18-35", "gender": "Male"}},
+        {"start": 0, "end": 4, "completed": True, "info": info, "speakers": {"Journalist": {"age": "18-35", "gender": "Male"}},
          "parts": [{"start": 0, "end": 2, "role": "Journalist", "text": "លេខ ១០", "norm": ""},
                    {"start": 2, "end": 4, "role": "Guest", "text": "b", "norm": "b!"}]},
         {"start": 4, "end": 8, "parts": [{"start": 4, "end": 6, "role": "Guest", "text": "c"},
                                          {"start": 6, "end": 8, "role": "Guest", "text": ""}]},   # not completed
-        {"start": 8, "end": 12, "text": "skipped", "deleted": True}]})
+        {"start": 8, "end": 10, "parts": [{"start": 8, "end": 10, "role": "Guest", "text": "d"}]},  # text, not checked yet
+        {"start": 10, "end": 12, "text": "skipped", "deleted": True}]})
     task = client.post("/api/tasks", json={"name": "T", "audio_ids": [a["id"]]}).json
     pushed = {}
 
@@ -206,7 +207,9 @@ def test_push_task_to_hub(client, monkeypatch):
     monkeypatch.setattr(hub, "push", fake_push)
     url = f"/api/tasks/{task['id']}"
     assert client.post(f"{url}/hub-push", json={"repo_id": "not a repo"}).status_code == 400
-    assert client.post(f"{url}/hub-push", json={"repo_id": "me/t"}).status_code == 200
+    r = client.post(f"{url}/hub-push", json={"repo_id": "me/t"})
+    assert r.status_code == 400 and "token" in r.json["error"]   # a private repo needs the token
+    assert client.post(f"{url}/hub-push", json={"repo_id": "me/t", "token": "hf_x"}).status_code == 200
     job = _wait(client, f"{url}/job")
     assert job["error"] is None and job["result"]["url"].endswith("/commit/1")
     rows = pushed["table"].to_pylist()
@@ -219,6 +222,7 @@ def test_push_task_to_hub(client, monkeypatch):
     assert rows[0]["task"] == "T"
     assert client.get(url).json["last_push"]["repo"] == "me/t"
 
-    client.post(f"{url}/hub-push", json={"repo_id": "me/t", "include": "with_text", "split": "test"})
+    assert (client.get(url).json["done"], client.get(url).json["todo"]) == (2, 2)   # done = completed or skipped
+    client.post(f"{url}/hub-push", json={"repo_id": "me/t", "include": "with_text", "split": "test", "private": False})
     _wait(client, f"{url}/job")
-    assert [r["id"] for r in pushed["table"].to_pylist()] == ["talk_0001_01", "talk_0001_02", "talk_0002_01"]
+    assert [r["id"] for r in pushed["table"].to_pylist()] == ["talk_0001_01", "talk_0001_02", "talk_0002_01", "talk_0003"]

@@ -4,7 +4,7 @@
 let curTask = null;          // GET /api/tasks/<id>: {id, name, created, ..., audios: [{id, name, segments}]}
 let crops = [];              // [{audio, seg, no, pkg}] every package of the task (no = crop number in its audio)
 let cur = -1;                // index in crops of the package open in the package view (-1 = list view)
-let cropTab = "todo";        // "todo" or "processed" (all segments have text, or skipped)
+let cropTab = "todo";        // "todo" or "processed" (checked and completed by the annotator, or skipped)
 let pkgPage = 1, pkgPer = 10;
 let recRunning = false, recStop = false;
 const cropPeaks = new Map(); // audio id -> {peaks: Int8Array, rate, max}
@@ -15,10 +15,10 @@ function cropState(c) {
   const s = c.seg, parts = liveParts(s);
   if (s.deleted || !parts.length) return "skipped";
   if (parts.some(p => p.state === "running")) return "running";
-  if (parts.every(p => (p.text || "").trim())) return "done";
+  if (parts.every(p => (p.text || "").trim())) return s.completed ? "done" : "review";   // review = recognized, not checked yet
   return parts.some(p => p.state === "error") ? "error" : "pending";
 }
-const STATUS = { pending: "Pending", running: "Recognizing", error: "Error", done: "Completed", skipped: "Skipped" };
+const STATUS = { pending: "Pending", running: "Recognizing", error: "Error", review: "To check", done: "Completed", skipped: "Skipped" };
 const handTyped = s => !!s.text && s.text !== s.wordsText;   // never overwrite in a batch
 const isProcessed = c => ["done", "skipped"].includes(cropState(c));
 const inTab = (c, tab) => tab === "processed" ? isProcessed(c) : !isProcessed(c);
@@ -41,6 +41,7 @@ function syncCrop(seg) {
   seg.norm = parts.map(p => (p.norm || "").trim()).filter(Boolean).join(" ");
   seg.role = (parts[0] || {}).role || seg.role || "Narrator";
   seg.state = parts.length && parts.every(p => (p.text || "").trim()) ? "done" : parts.some(p => p.state === "error") ? "error" : "pending";
+  if (seg.state !== "done") seg.completed = false;   // a segment lost its text (or a new one was cut): back to Todo
 }
 
 function setTaskStatus(t) { $("taskStatus").textContent = t; }
@@ -57,8 +58,9 @@ async function openTask(id) {
   cropTab = crops.some(c => inTab(c, "todo")) || !crops.length ? "todo" : "processed";
   pkgPage = 1;
   setTaskStatus("");
+  tpWasRunning = tpRunning = false;
   await showList();
-  $("tpJob").hidden = true; tpWasRunning = false;
+  $("tpJob").hidden = true;
   tpPoll();                // a push to the Hub of this task may still be running
   return curTask;
 }
@@ -111,6 +113,7 @@ function renderPackages() {
   updateDurationStats();
   updateAnnotatorFilter();
   $("btnClaim").disabled = !crops.some(c => inTab(c, "todo"));
+  tpUpdateButton();
 }
 
 function updateTabCounts() {
@@ -202,7 +205,8 @@ $("btnRecAll").onclick = async () => {
   if (fatal) return;
   const err = crops.filter(c => cropState(c) === "error").length;
   const msg = `${recStop ? "Stopped" : "Finished"}: ${k} segment(s) recognized${err ? `, ${err} package(s) with errors (open them and press Recognize)` : ""}.` +
-              (todo.length ? "" : " Nothing to do — every segment already has text.");
+              (todo.length ? "" : " Nothing to do — every segment already has text.") +
+              " Check each package in Todo, then press Complete to move it to Processed.";
   setTaskStatus(msg);
   notify(msg, err ? "warn" : recStop ? "info" : "success");
 };

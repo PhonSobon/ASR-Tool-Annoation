@@ -104,8 +104,40 @@ function paintPackage() {
   $("btnSkipPkg").innerHTML = c.seg.deleted ? icon("restore") + "Restore package" : icon("trash") + "Skip package";
   $("btnSkipPkg").title = c.seg.deleted ? "Put this package back into the export" : "Leave the whole package out of the export (noise, music, no speech…)";
   $("btnRecSegs").disabled = segRunning || c.seg.deleted;
+  document.querySelectorAll(".pkg-complete").forEach(b => {
+    b.innerHTML = st === "done" ? icon("restore") + "Back to Todo" : icon("check") + "Complete";
+    b.className = "pkg-complete" + (st === "done" ? " sec" : "");
+    b.disabled = c.seg.deleted;
+    b.title = st === "done" ? "Move this package back to Todo to work on it again"
+                            : "You checked every segment: move this package to Processed and open the next one";
+  });
   showMissing();
 }
+
+// Complete = the annotator checked the package: it moves from Todo to Processed (only completed packages are pushed)
+document.querySelectorAll(".pkg-complete").forEach(b => b.onclick = async () => {
+  await saveNow();                                    // the editor's segments -> the package's parts
+  const c = pkg();
+  if (!c) return;
+  if (cropState(c) === "done") {
+    c.seg.completed = false;
+    markCropDirty(c);
+    paintPackage();
+    return setStatus("Moved back to Todo.");
+  }
+  if (cropState(c) !== "review") return notify("Every segment needs annotation text before the package can be completed.", "warn");
+  const miss = missingFields(c);
+  if (miss.length && !await askConfirm(`Still missing: ${miss.slice(0, 6).join(" · ")}${miss.length > 6 ? ` · +${miss.length - 6} more` : ""}. Complete the package anyway?`,
+                                        { title: "Complete package", ok: "Complete anyway" })) return;
+  c.seg.completed = true;
+  markCropDirty(c);
+  paintPackage();
+  if (!crops.some(x => inTab(x, "todo"))) {
+    await showList();
+    return notify("Every package is completed — you can push the task to Hugging Face now.", "success");
+  }
+  stepPackage(1);
+});
 
 $("btnSkipPkg").onclick = () => {
   const c = pkg();
@@ -314,8 +346,16 @@ $("riChallenges").onclick = e => {
 function showMissing() {
   const c = pkg();
   if (!c) return;
-  const miss = [], live = segs.filter(s => !s.deleted);
   if (c.seg.deleted) { $("pkgMissing").innerHTML = icon("info") + "This package is skipped — it is left out of the export."; return; }
+  const miss = missingFields(c);
+  $("pkgMissing").innerHTML = miss.length
+    ? icon("alert") + esc(`Missing: ${miss.slice(0, 6).join(" · ")}${miss.length > 6 ? ` · +${miss.length - 6} more` : ""}`)
+    : icon("check-circle") + "All required fields are filled.";
+  $("pkgMissing").classList.toggle("errmsg", miss.length > 0);
+}
+
+function missingFields(c) {
+  const miss = [], live = segs.filter(s => !s.deleted);
   live.forEach(s => {
     const n = segs.indexOf(s) + 1;
     if (!(s.role || "").trim()) miss.push(`role of segment ${n}`);
@@ -328,8 +368,5 @@ function showMissing() {
   }
   const info = c.seg.info || {};
   Object.entries(REQUIRED_INFO).forEach(([k, label]) => { if (!(info[k] || "").trim()) miss.push(label); });
-  $("pkgMissing").innerHTML = miss.length
-    ? icon("alert") + esc(`Missing: ${miss.slice(0, 6).join(" · ")}${miss.length > 6 ? ` · +${miss.length - 6} more` : ""}`)
-    : icon("check-circle") + "All required fields are filled.";
-  $("pkgMissing").classList.toggle("errmsg", miss.length > 0);
+  return miss;
 }

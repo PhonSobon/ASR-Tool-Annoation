@@ -98,9 +98,10 @@ INCLUDE = ("done", "with_text")
 
 
 def crop_done(crop):
-    """Every live dialogue segment of the crop has text (the package is completed)."""
+    """The annotator checked the package and pressed Complete (and every live dialogue segment has text)."""
     parts = [p for p in (crop.get("parts") or [crop]) if not p.get("deleted")]
-    return not crop.get("deleted") and bool(parts) and all((p.get("text") or "").strip() for p in parts)
+    return (not crop.get("deleted") and bool(crop.get("completed")) and bool(parts)
+            and all((p.get("text") or "").strip() for p in parts))
 
 
 def hub_segments(task_id, include="done"):

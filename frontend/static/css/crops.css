@@ -50,6 +50,7 @@ button.back:hover { border-color:var(--primary); color:var(--primary); }
 .st.done::before { background:var(--ok); }
 .st.running::before { background:var(--run); }
 .st.error::before { background:var(--err); }
+.st.review::before { background:var(--primary); }
 .pkg-empty { text-align:center; color:var(--muted); padding:40px 10px 48px; font-size:14px; }
 .pkg-empty-icon { color:#c0c4cc; margin-bottom:6px; }
 .pkg-pager { display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:8px; margin-top:16px; font-size:14px; }
@@ -62,4 +63,5 @@ button.back:hover { border-color:var(--primary); color:var(--primary); }
 .badge.running { background:#fef3c7; color:var(--run); }
 .badge.done { background:#dcfce7; color:var(--ok); }
 .badge.error { background:#fee2e2; color:var(--err); }
+.badge.review { background:#dbeafe; color:var(--primary); }
 .req::after { content:"*"; color:var(--err); margin-left:2px; }
