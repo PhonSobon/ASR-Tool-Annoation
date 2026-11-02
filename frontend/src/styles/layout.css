@@ -1,0 +1,53 @@
+/* Platform shell: dark sidebar (brand + menu), top bar (menu toggle, breadcrumbs, save status, account), page header */
+.layout { display:flex; min-height:100vh; }
+.sidebar { width:var(--side-w); flex:none; position:sticky; top:0; height:100vh; overflow-y:auto; display:flex; flex-direction:column;
+           background:#0f172a; color:#cbd5e1; padding:0 0 16px; z-index:35; }
+.brand { display:flex; align-items:center; gap:10px; height:var(--bar-h); padding:0 20px; color:#fff; text-decoration:none;
+         font-size:var(--fs-md); font-weight:600; line-height:1.25; border-bottom:1px solid rgba(255,255,255,.08); margin-bottom:8px; }
+.brand svg { width:28px; height:28px; flex:none; }
+.nav-group { padding:4px 0; }
+.nav-head { width:100%; height:auto; display:flex; align-items:center; gap:10px; padding:12px 20px 6px; background:none; border:0;
+            color:#64748b; font-size:var(--fs-xs); font-weight:600; letter-spacing:.06em; text-transform:uppercase; border-radius:0; justify-content:flex-start; }
+.nav-head:hover:not(:disabled) { background:none; color:#94a3b8; }
+.nav-head .i { width:14px; height:14px; }
+.nav-head .caret { margin-left:auto; display:inline-flex; transition:transform .2s; }
+.nav-group.closed .caret { transform:rotate(180deg); }
+.nav-group.closed .nav-item { display:none; }
+.nav-item { display:flex; align-items:center; gap:10px; margin:2px 12px; padding:8px 12px 8px 34px; font-size:var(--fs-md); color:#cbd5e1;
+            text-decoration:none; border-radius:var(--r); position:relative; }
+.nav-item:hover { background:rgba(255,255,255,.06); color:#fff; }
+.nav-item.on { background:rgba(59,130,246,.18); color:#fff; font-weight:500; }
+.nav-item.on::before { content:""; position:absolute; left:14px; top:50%; width:6px; height:6px; margin-top:-3px; border-radius:50%; background:#60a5fa; }
+.side-foot { margin-top:auto; padding:12px 20px 0; font-size:var(--fs-xs); color:#64748b; border-top:1px solid rgba(255,255,255,.08); }
+.side-foot b { display:block; color:#e2e8f0; font-size:var(--fs-md); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.content { flex:1; min-width:0; display:flex; flex-direction:column; }
+.appbar { position:sticky; top:0; z-index:30; height:var(--bar-h); display:flex; align-items:center; gap:12px; padding:0 24px 0 12px;
+          background:rgba(255,255,255,.92); backdrop-filter:blur(8px); border-bottom:1px solid var(--border); }
+.crumb-toggle { width:var(--h); padding:0; background:none; color:var(--muted); border:0; }
+.crumb-toggle:hover:not(:disabled) { background:var(--hover); color:var(--text); }
+.crumbs { display:flex; align-items:center; gap:8px; min-width:0; font-size:var(--fs-md); color:var(--muted); overflow:hidden; white-space:nowrap; }
+.crumbs a { color:var(--muted); text-decoration:none; }
+.crumbs a:hover { color:var(--primary); }
+.crumbs > span:last-child { color:var(--text); font-weight:500; overflow:hidden; text-overflow:ellipsis; }
+.save-state { font-size:var(--fs-xs); color:var(--muted); white-space:nowrap; }
+.save-state .i { color:var(--ok); }
+.save-state.err, .save-state.err .i { color:var(--err); }
+.avatar { width:34px; height:34px; padding:0; border-radius:50%; background:var(--primary); color:#fff; font-weight:600; font-size:var(--fs-md); }
+.main { flex:1; width:100%; max-width:1600px; padding:24px 24px 64px; }
+
+/* page header: title + one line of help, actions on the right */
+.headcard { background:none; border:0; box-shadow:none; padding:0; margin-bottom:20px; border-radius:0; }
+.head-row, .act-head, .task-head { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:12px 16px; }
+:is(.head-row, .act-head, .task-head) > div:first-child { flex:1; min-width:240px; }
+.headcard h2 { margin:0 0 4px; font-size:var(--fs-xl); font-weight:600; }
+.headcard p { margin:0; font-size:var(--fs-md); color:var(--muted); line-height:1.6; max-width:880px; }
+.headcard .sub { color:var(--text-2); }
+
+body.side-hidden .sidebar { display:none; }
+@media (max-width:800px) {
+  .sidebar { position:fixed; left:0; top:0; box-shadow:4px 0 24px rgba(15,23,42,.3); }
+  body:not(.side-open) .sidebar { display:none; }
+  .appbar { padding:0 12px 0 6px; }
+  .main { padding:16px 12px 48px; }
+}

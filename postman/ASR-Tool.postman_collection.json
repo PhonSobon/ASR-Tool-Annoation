@@ -1,0 +1,1478 @@
+{
+  "info": {
+    "name": "ASR Tool - Data Annotation Platform API",
+    "description": "Run '1. Login > Login' first (set username and password in the collection Variables tab). Upload audio, Create task and Import dataset save audioId, taskId and datasetId automatically.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Login",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}auth/login",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Run this first. Postman keeps the session cookie for 127.0.0.1.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Who am I",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}auth/me",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Change my password (not admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}auth/password",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "auth",
+                "password"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current\": \"\",\n  \"new\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}auth/logout",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Users & Activity (admin)",
+      "item": [
+        {
+          "name": "List users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}users",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "User directory (managers)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}users/directory",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "users",
+                "directory"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Add user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}users",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "description": "Roles: admin, manager, annotator, inspector, acceptor, viewer. The password is a default the user must change.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{newUser}}\",\n  \"password\": \"Default@1234\",\n  \"role\": \"annotator\",\n  \"name\": \"New Annotator\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update user",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}users/{{newUser}}",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "users",
+                "{{newUser}}"
+              ]
+            },
+            "description": "Optional fields: name, role, active, password (new default).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Name\",\n  \"role\": \"inspector\",\n  \"active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete user",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}users/{{newUser}}",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "users",
+                "{{newUser}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Activity log",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}activity?page=1&per=50",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "activity"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "role",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "action",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "since",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "until",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "per",
+                  "value": "50",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Activity overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}activity/overview",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "activity",
+                "overview"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Work Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}activity/work",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "activity",
+                "work"
+              ],
+              "query": [
+                {
+                  "key": "since",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "until",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Dates as YYYY-MM-DD; leave empty for all time."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Audio (Upload & Crop)",
+      "item": [
+        {
+          "name": "List audio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}audios",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "audios"
+              ],
+              "query": [
+                {
+                  "key": "task",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Upload audio",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}audios",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "audios"
+              ]
+            },
+            "description": "Body > form-data > choose a file for the key 'audio'. Saves audioId.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "audio",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "const v = j.id;",
+                  "if (v !== undefined) { pm.collectionVariables.set('audioId', v); console.log('audioId =', v); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Open audio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}audios/{{audioId}}",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "audios",
+                "{{audioId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Autosave segments",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}audios/{{audioId}}/state",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "audios",
+                "{{audioId}}",
+                "state"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"segments\": [\n    {\n      \"start\": 0,\n      \"end\": 5,\n      \"text\": \"\"\n    }\n  ],\n  \"changed\": [\n    0\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Recut into fixed segments",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}audios/{{audioId}}/recut",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "audios",
+                "{{audioId}}",
+                "recut"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"chunk_seconds\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Audio file",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}audios/{{audioId}}/audio",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "audios",
+                "{{audioId}}",
+                "audio"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Waveform peaks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}audios/{{audioId}}/peaks",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "audios",
+                "{{audioId}}",
+                "peaks"
+              ],
+              "query": [
+                {
+                  "key": "buckets",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Transcribe one segment (ASR)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}audios/{{audioId}}/transcribe",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "audios",
+                "{{audioId}}",
+                "transcribe"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start\": 0,\n  \"end\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Export one audio ZIP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}audios/{{audioId}}/export",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "audios",
+                "{{audioId}}",
+                "export"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"my_dataset\",\n  \"segments\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete audio",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}audios/{{audioId}}",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "audios",
+                "{{audioId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Normalize text",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}text/normalize",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "text",
+                "normalize"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"សួស្តី ១២៣\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Tasks",
+      "item": [
+        {
+          "name": "List tasks (My Tasks)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}tasks",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Create task",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}tasks",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "description": "Saves taskId.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Task 1\",\n  \"audio_ids\": [\n    \"{{audioId}}\"\n  ],\n  \"members\": {\n    \"annotator\": [],\n    \"inspector\": [],\n    \"acceptor\": []\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "const v = j.id;",
+                  "if (v !== undefined) { pm.collectionVariables.set('taskId', v); console.log('taskId =', v); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Open task",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}tasks/{{taskId}}",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Set members",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}tasks/{{taskId}}/members",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}",
+                "members"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"annotator\": [],\n  \"inspector\": [],\n  \"acceptor\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Review a package",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}tasks/{{taskId}}/review",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}",
+                "review"
+              ]
+            },
+            "description": "step: inspection | acceptance. decision: pass | accept | return.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"audio_id\": \"{{audioId}}\",\n  \"index\": 0,\n  \"step\": \"inspection\",\n  \"decision\": \"pass\",\n  \"note\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Export task ZIP",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}tasks/{{taskId}}/export",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}",
+                "export"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Push task to Hugging Face",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}tasks/{{taskId}}/hub-push",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}",
+                "hub-push"
+              ]
+            },
+            "description": "include: accepted | passed | done | with_text. Runs as a job.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"repo_id\": \"user/repo\",\n  \"split\": \"train\",\n  \"include\": \"accepted\",\n  \"private\": true,\n  \"create_pr\": false,\n  \"token\": \"{{hfToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Push job progress",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}tasks/{{taskId}}/job",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}",
+                "job"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Stop push",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}tasks/{{taskId}}/stop",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}",
+                "stop"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Delete task",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}tasks/{{taskId}}",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Dataset Cleaning",
+      "item": [
+        {
+          "name": "Hub: inspect dataset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}hub/inspect",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "hub",
+                "inspect"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"repo\": \"user/dataset\",\n  \"token\": \"{{hfToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Hub: who am I",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}hub/whoami",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "hub",
+                "whoami"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{hfToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List datasets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}datasets",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "datasets"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Import dataset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}datasets",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "datasets"
+              ]
+            },
+            "description": "Use 'Hub: inspect dataset' first to get config, split and column names. Saves datasetId.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"repo\": \"user/dataset\",\n  \"config\": \"default\",\n  \"split\": \"train\",\n  \"audio_column\": \"audio\",\n  \"text_column\": \"text\",\n  \"columns\": {},\n  \"start_row\": 0,\n  \"max_rows\": 100,\n  \"batches\": 1,\n  \"check\": false,\n  \"name\": \"\",\n  \"token\": \"{{hfToken}}\",\n  \"members\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "const v = j.datasets && j.datasets[0] && j.datasets[0].id;",
+                  "if (v !== undefined) { pm.collectionVariables.set('datasetId', v); console.log('datasetId =', v); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Open dataset",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}datasets/{{datasetId}}",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "datasets",
+                "{{datasetId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Set reviewers",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}datasets/{{datasetId}}/members",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "datasets",
+                "{{datasetId}}",
+                "members"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"members\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Job progress",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}datasets/{{datasetId}}/job",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "datasets",
+                "{{datasetId}}",
+                "job"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Stop job",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}datasets/{{datasetId}}/stop",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "datasets",
+                "{{datasetId}}",
+                "stop"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Clip WAV",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}datasets/{{datasetId}}/clips/{{n}}",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "datasets",
+                "{{datasetId}}",
+                "clips",
+                "{{n}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Download clip",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}datasets/{{datasetId}}/items/{{n}}/audio",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "datasets",
+                "{{datasetId}}",
+                "items",
+                "{{n}}",
+                "audio"
+              ],
+              "query": [
+                {
+                  "key": "trim",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Review clip",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}datasets/{{datasetId}}/items/{{n}}",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "datasets",
+                "{{datasetId}}",
+                "items",
+                "{{n}}"
+              ]
+            },
+            "description": "Optional: text, norm, status (todo | accepted | rejected), reason, trim.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"\",\n  \"status\": \"accepted\",\n  \"reason\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Split clip",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}datasets/{{datasetId}}/items/{{n}}/split",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "datasets",
+                "{{datasetId}}",
+                "items",
+                "{{n}}",
+                "split"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"at\": 2.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Join with next part",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}datasets/{{datasetId}}/items/{{n}}/join",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "datasets",
+                "{{datasetId}}",
+                "items",
+                "{{n}}",
+                "join"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Recognize clip (ASR)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}datasets/{{datasetId}}/items/{{n}}/recognize",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "datasets",
+                "{{datasetId}}",
+                "items",
+                "{{n}}",
+                "recognize"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Check all clips (ASR)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}datasets/{{datasetId}}/check",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "datasets",
+                "{{datasetId}}",
+                "check"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"redo\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Accept passing clips",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}datasets/{{datasetId}}/accept-passing",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "datasets",
+                "{{datasetId}}",
+                "accept-passing"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"max_cer\": 0.1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Export cleaned ZIP",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}datasets/{{datasetId}}/export?include=accepted&trim=1",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "datasets",
+                "{{datasetId}}",
+                "export"
+              ],
+              "query": [
+                {
+                  "key": "include",
+                  "value": "accepted",
+                  "disabled": false
+                },
+                {
+                  "key": "trim",
+                  "value": "1",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Push to Hugging Face",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}datasets/{{datasetId}}/push",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "datasets",
+                "{{datasetId}}",
+                "push"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"repo_id\": \"user/repo\",\n  \"split\": \"train\",\n  \"include\": \"accepted\",\n  \"trim\": true,\n  \"private\": true,\n  \"create_pr\": false,\n  \"token\": \"{{hfToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete dataset",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}datasets/{{datasetId}}",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "datasets",
+                "{{datasetId}}"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseURL",
+      "value": "http://127.0.0.1:5100/api/"
+    },
+    {
+      "key": "username",
+      "value": "sobon_phon"
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "newUser",
+      "value": "annotator1"
+    },
+    {
+      "key": "audioId",
+      "value": ""
+    },
+    {
+      "key": "taskId",
+      "value": ""
+    },
+    {
+      "key": "datasetId",
+      "value": ""
+    },
+    {
+      "key": "n",
+      "value": "0"
+    },
+    {
+      "key": "hfToken",
+      "value": ""
+    }
+  ]
+}

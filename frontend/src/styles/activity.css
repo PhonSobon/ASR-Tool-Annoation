@@ -1,0 +1,47 @@
+/* Administrator dashboards (Activity & Status, Work Dashboard): stat cards, filter rows, tables, role marks */
+.act-cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:12px; margin-bottom:20px; }
+.act-card { height:auto; display:grid; grid-template-columns:auto 1fr; grid-template-rows:auto auto; align-items:center; gap:4px 10px;
+            background:#fff; color:var(--text); font-weight:400; border:1px solid var(--border); border-radius:var(--r-lg);
+            padding:16px; text-align:left; box-shadow:var(--shadow); white-space:normal; }
+.act-card:hover:not(:disabled) { background:#fff; border-color:var(--primary-line); }
+.act-card:disabled { opacity:1; cursor:default; }
+.act-card .i { grid-row:span 2; width:36px; height:36px; padding:8px; border-radius:var(--r); background:var(--hover); color:var(--muted); }
+.act-card b { font-size:var(--fs-2xl); font-weight:600; line-height:1.15; font-variant-numeric:tabular-nums; }
+.act-card span { font-size:var(--fs-xs); color:var(--muted); }
+.act-card.ok .i { background:var(--ok-soft); color:var(--ok); }
+.act-card.warn .i { background:var(--run-soft); color:var(--run); }
+.act-card.warn b { color:#b45309; }
+.act-card.err .i { background:var(--err-soft); color:var(--err); }
+.act-card.err b { color:var(--err); }
+.act-card.on { border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.15); }
+
+.act-bar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:16px; }
+.act-roles { display:flex; flex-wrap:wrap; gap:6px; }
+.act-roles .chip span { color:var(--muted); margin-left:2px; }
+.chip.on span { color:inherit; }
+.act-filters { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 16px; }
+.act-filters label { display:flex; align-items:center; gap:8px; color:var(--muted); }
+.act-filters .chip { height:var(--h); padding:0 14px; font-size:var(--fs-md); }
+.check { display:inline-flex; align-items:center; gap:8px; color:var(--text-2); white-space:nowrap; cursor:pointer; }
+
+.act-table { min-width:900px; }
+.act-table td.idle { color:#b45309; font-weight:600; }
+.act-table td.bad { color:var(--err); font-weight:600; }
+.act-table tr.inactive td { color:var(--muted); }
+.act-table tr.refused td { background:#fef2f2; }
+.act-table .pill { margin-left:6px; }
+.act-detail { max-width:420px; color:var(--text-2); word-break:break-word; }
+.nowrap { white-space:nowrap; }
+.role-pill { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+.role-pill::before { content:""; width:8px; height:8px; border-radius:50%; background:#94a3b8; }
+.role-pill.r-admin::before { background:#dc2626; } .role-pill.r-manager::before { background:#2563eb; }
+.role-pill.r-annotator::before { background:#16a34a; } .role-pill.r-inspector::before { background:#d97706; }
+.role-pill.r-acceptor::before { background:#7c3aed; } .role-pill.r-viewer::before { background:#64748b; }
+
+/* Work Dashboard */
+.work-table { min-width:1150px; }
+.work-table tr.groups th { text-align:center; border-bottom:1px solid var(--border); background:#fff; color:var(--text-2); }
+.work-table tr.groups th + th, .work-table .gs { border-left:1px solid var(--border); }
+.work-table td.strong { font-weight:600; }
+.work-table td.ok { color:var(--ok); font-weight:600; }
+.work-note { font-size:var(--fs-xs); color:var(--muted); margin:12px 0 0; line-height:1.6; }

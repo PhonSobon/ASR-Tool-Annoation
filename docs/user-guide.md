@@ -2,11 +2,39 @@
 
 This guide walks through both workflows of the Khmer Audio Annotation Tool step by step. For installation, see the [README](../README.md#quick-start).
 
+- [Users and roles](#users-and-roles)
 - [Workflow 1: Annotate your own recordings](#workflow-1-annotate-your-own-recordings)
 - [Workflow 2: Clean a Hugging Face dataset](#workflow-2-clean-a-hugging-face-dataset)
 - [Output formats](#output-formats)
 - [Pushing to the Hugging Face Hub](#pushing-to-the-hugging-face-hub)
 - [Keyboard shortcuts](#keyboard-shortcuts)
+
+---
+
+## Users and roles
+
+There is no sign-up: everyone signs in with an account the administrator made. The administrator comes from `ADMIN_USERNAME` (default `admin`) and `ADMIN_PASSWORD` in `.env`; it is created at start-up and its password can only be changed there (then restart). The administrator adds the other users under **Administration → Users & Roles** with a **default password**; managers, annotators, inspectors, acceptors and viewers must choose their own password the first time they sign in. **Administration → Activity & Status** shows every user's status (online, never signed in, still on the default password, deactivated), who worked today and who did not, and the full activity log. **Administration → Work Dashboard** shows what each user produced in a period (all time, today, 7 / 30 days or chosen dates): hours annotated, packages completed and in progress, how many times their packages were returned (errors) and how many were accepted, the reviews they made, and the dataset clips they accepted or rejected. Every password must be **8 to 12 characters** with an upper-case letter, a lower-case letter, a number and a special character (such as `! @ # $ %`), no spaces, and must not contain the user name.
+
+| Role | What it can do |
+|---|---|
+| **Administrator** | Everything, and manages users and roles |
+| **Project Manager** | Upload & Crop, make tasks, import Hugging Face datasets, assign people, export ZIPs, push to the Hub; can also annotate, inspect and accept |
+| **Annotator** | Annotates the packages of the tasks they are a member of; reviews the clips of the datasets they are assigned to |
+| **Quality Inspector** | Checks completed packages: **passes** them or **returns** them to the annotator with a note; may fix the text |
+| **Acceptor** | Final acceptance of the packages that passed inspection (or returns them) |
+| **Viewer** | Sees every task and dataset, changes nothing |
+
+Annotators, inspectors and acceptors see only the tasks and datasets a manager added them to (the **Members** button). Every package goes through:
+
+```
+Todo (annotator) --Complete--> Inspection --Pass--> Acceptance --Accept--> Done
+        ^                          |                    |
+        +------ Return + note -----+--------------------+
+```
+
+Nobody can inspect or accept a package they annotated themselves (except the administrator). A package that passed inspection can no longer be changed by its annotator. When you push a task to the Hub you choose **accepted** packages, packages that **passed inspection**, or all **completed** ones.
+
+Managers add people to a task or a dataset with the **Members** button on its page. Use the avatar (top right) to change your password or log out.
 
 ---
 

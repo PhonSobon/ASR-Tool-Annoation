@@ -3,15 +3,14 @@ import io
 import json
 import zipfile
 
-from backend.services import recognizer
+from backend.asr import recognizer
 from conftest import upload
 
 
-def test_index_page(client):
-    r = client.get("/")
-    assert r.status_code == 200
-    assert b"Data Annotation Platform" in r.data
-    assert b"js/main.js" in r.data
+def test_root_points_to_the_web_app(client, app):
+    assert "web" in client.get("/").json
+    app.config["WEB_URL"] = "http://127.0.0.1:3000"
+    assert client.get("/").headers["Location"] == "http://127.0.0.1:3000"
 
 
 # ---------- Upload & Crop ----------
@@ -161,10 +160,10 @@ def test_export_dialogue_segments_with_speaker_and_audio_info(client):
     assert meta[2]["role"] == "Narrator" and meta[2]["duration"] == 6.0
 
 
-def test_me_uses_computer_user_or_setting(client, app):
-    assert client.get("/api/me").json["name"]
-    app.config["ANNOTATOR_NAME"] = "Sobon"
-    assert client.get("/api/me").json["name"] == "Sobon"
+def test_me_is_the_logged_in_user(client):
+    me = client.get("/api/auth/me").json["user"]
+    assert me["username"] == "admin" and me["role"] == "admin" and "users.manage" in me["permissions"]
+    assert "password_hash" not in me
 
 
 def _wait(client, url):
@@ -183,7 +182,7 @@ def test_push_task_to_hub(client, monkeypatch):
 
     import pyarrow.parquet as pq
 
-    from backend.services import hub
+    from backend.core import hub
 
     a = upload(client, "talk.wav")
     info = {"language": "Khmer", "accent": "Phnom Penh", "challenges": ["Noise", "Fast"]}

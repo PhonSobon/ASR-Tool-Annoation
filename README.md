@@ -12,6 +12,11 @@ It covers two jobs:
 
 ## Features
 
+**Team work**
+- Log in with your own account. Roles: **Administrator**, **Project Manager**, **Annotator**, **Quality Inspector**, **Acceptor** and **Viewer**.
+- Managers assign people to each task and dataset; everyone else sees only their own work.
+- Every package is checked twice: the quality inspector passes it or returns it with a note, then the acceptor gives the final acceptance. The task page shows who annotated, inspected and accepted each package.
+
 **Annotation**
 - Upload many audio or video files at once; anything FFmpeg can read is converted to 16 kHz mono.
 - Waveform cut editor: fixed-length cuts (10 / 20 / 30 s), drag to crop, move boundaries (snapping to pauses), merge, skip, undo / redo, zoom.
@@ -24,6 +29,7 @@ It covers two jobs:
 **Dataset cleaning**
 - Import any Hugging Face audio dataset with a transcript column (public, private or gated).
 - **Batches for big datasets:** each batch reads only its own rows from the Hub, so a million-row dataset never has to be downloaded in full.
+  The Hub's own parquet copy of a split bigger than about 5 GB is only partial; the tool then reads the repo's parquet files instead, or warns which rows cannot be reached. Each batch remembers the dataset's commit, and the tool warns if the dataset changed between batches.
 - Automatic checks: character error rate (CER) of the local ASR against the dataset text, plus audio and text problems (silence, clipping, duplicates, digits, Latin letters, speaking rate …). Each clip is marked *passed*, *needs review* or *likely bad*.
 - Fast review: text and ASR output side by side with the differences highlighted, keyboard shortcuts, trim, cut a clip in two, join parts, reject with a reason.
 
@@ -33,18 +39,55 @@ It covers two jobs:
 
 ## Quick start
 
-**Requirements:** Python 3.10 or newer, and [FFmpeg](https://ffmpeg.org/download.html) on your `PATH`. An NVIDIA GPU is optional but makes recognition much faster.
+The tool has two parts: a **Flask API** (Python, `backend/`) that stores everything in **PostgreSQL**, and a
+**Next.js web app** (`frontend/`) that the browser opens.
+
+**Requirements:** Python 3.10 or newer, [Node.js](https://nodejs.org/) 20 or newer, PostgreSQL 14 or newer (or
+Docker), and [FFmpeg](https://ffmpeg.org/download.html) on your `PATH`. An NVIDIA GPU is optional but makes
+recognition much faster.
+
+**1. Settings.** Copy `.env.example` to `.env` and set the database password and a `SECRET_KEY`:
 
 ```bash
 git clone https://github.com/PhonSobon/ASR-Tool-Annoation.git
 cd ASR-Tool-Annoation
+cp .env.example .env            # Windows PowerShell: Copy-Item .env.example .env
+```
+
+**2. PostgreSQL.** Either start the one in `docker-compose.yml` (it uses the `POSTGRES_*` values of `.env`):
+
+```bash
+docker compose up -d
+```
+
+or use your own server: create a database and a user, and put them in `DATABASE_URL`, for example
+`postgresql://khmer_asr:secret@localhost:5432/khmer_asr`. The tables are created at the first start.
+
+**3. The API** (port 5100):
+
+```bash
 python -m venv .venv
 # Windows: .venv\Scripts\activate    macOS / Linux: source .venv/bin/activate
 pip install -r requirements.txt
 python app.py
 ```
 
-Open **http://127.0.0.1:5000** in your browser.
+**4. The web app** (port 3000), in a second terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev                     # for a team: npm run build && npm start
+```
+
+Open **http://localhost:3000**. The first time, it asks you to create the administrator account.
+
+**Coming from an earlier version** (data in JSON files in `data/`)? Copy it into the database once — users, tasks,
+segments and dataset reviews; the audio files stay where they are:
+
+```bash
+flask --app app import-json
+```
 
 For GPU support, install the CUDA build of PyTorch from [pytorch.org](https://pytorch.org/get-started/locally/) before `pip install -r requirements.txt`.
 
@@ -61,20 +104,44 @@ The model weights (`model.safetensors`, 1.28 GB) are not stored in this reposito
 
 To use another copy, set `OMNI_ASR_MODEL` to a Hugging Face repo id or to a folder with `model.safetensors`, `config.json` and `vocab.json`.
 
+## Users and roles
+
+There is no sign-up: everyone signs in with an account the administrator made. The administrator comes from `ADMIN_USERNAME` (default `admin`) and `ADMIN_PASSWORD` in `.env`; it is created at start-up and its password can only be changed there (then restart). The administrator adds the other users under **Administration → Users & Roles** with a **default password**; managers, annotators, inspectors, acceptors and viewers must choose their own password the first time they sign in. **Administration → Activity & Status** shows every user's status (online, never signed in, still on the default password, deactivated), who worked today and who did not, and the full activity log. **Administration → Work Dashboard** shows what each user produced in a period (all time, today, 7 / 30 days or chosen dates): hours annotated, packages completed and in progress, how many times their packages were returned (errors) and how many were accepted, the reviews they made, and the dataset clips they accepted or rejected. Every password must be **8 to 12 characters** with an upper-case letter, a lower-case letter, a number and a special character (such as `! @ # $ %`), no spaces, and must not contain the user name.
+
+| Role | What it can do |
+|---|---|
+| **Administrator** | Everything, and manages users and roles |
+| **Project Manager** | Upload & Crop, make tasks, import Hugging Face datasets, assign people, export ZIPs, push to the Hub; can also annotate, inspect and accept |
+| **Annotator** | Annotates the packages of the tasks they are a member of; reviews the clips of the datasets they are assigned to |
+| **Quality Inspector** | Checks completed packages: **passes** them or **returns** them to the annotator with a note; may fix the text |
+| **Acceptor** | Final acceptance of the packages that passed inspection (or returns them) |
+| **Viewer** | Sees every task and dataset, changes nothing |
+
+Annotators, inspectors and acceptors see only the tasks and datasets a manager added them to (the **Members** button). Every package goes through:
+
+```
+Todo (annotator) --Complete--> Inspection --Pass--> Acceptance --Accept--> Done
+        ^                          |                    |
+        +------ Return + note -----+--------------------+
+```
+
+Nobody can inspect or accept a package they annotated themselves (except the administrator). A package that passed inspection can no longer be changed by its annotator. When you push a task to the Hub you choose **accepted** packages, packages that **passed inspection**, or all **completed** ones.
+
 ## How to use it
 
 ### Annotate your own recordings
 
 1. **Upload & Crop:** add audio files, cut them (for example every 20 s) and fix the cuts on the waveform.
-2. Tick the files that are ready and **push them to a task**.
-3. **My Tasks → open the task:** press **Recognize all** to draft every transcript, then go through the packages. Fix the text, split dialogue into speaker turns and fill in the speaker and recording details.
-4. **Export task ZIP**, or **Push to Hugging Face**.
+2. Tick the files that are ready and **push them to a task**. Open the task and press **Members** to choose its annotators, inspectors and acceptors.
+3. **Annotators:** press **Recognize all** to draft every transcript, then go through the packages. Fix the text, split dialogue into speaker turns, fill in the speaker and recording details, and press **Complete**.
+4. **Quality inspectors** open the **Inspection** tab: **Pass inspection**, or **Return to annotator** with a note. **Acceptors** do the same in the **Acceptance** tab.
+5. **Export task ZIP**, or **Push to Hugging Face** (accepted packages).
 
 ### Clean a Hugging Face dataset
 
-1. **Dataset Cleaning:** enter a dataset id such as `seanghay/khmer_mpwt_speech` and click **Load**.
+1. **Dataset Cleaning** (project manager): enter a dataset id such as `seanghay/khmer_mpwt_speech` and click **Load**.
 2. Choose the split, the audio and text columns, and for a big dataset the **rows per batch** (for example 200) and how many batches to create.
-3. The clips are imported and checked by the ASR. **Accept passing clips** in one click, then review the rest, worst first.
+3. The clips are imported and checked by the ASR. Open a batch and press **Members** to choose its reviewers. **Accept passing clips** in one click, then review the rest, worst first.
 4. **Push to Hugging Face.** Every batch goes to the same repo and together they form one dataset.
 
 The **[user guide](docs/user-guide.md)** explains every page, the quality checks, the output formats and all keyboard shortcuts.
@@ -98,36 +165,78 @@ On the Hugging Face Hub, each task or batch is stored as `data/<split>-<task or 
 
 ## Configuration
 
-All settings are optional environment variables.
+Settings are environment variables, read from `.env` in the project root (see [.env.example](.env.example));
+variables set in the real environment win over the file. `.env` is not committed.
 
 | Variable | Default | Meaning |
 |---|---|---|
+| `DATABASE_URL` | SQLite file `data/app.db` | The database: `postgresql://user:password@host:5432/dbname`. Without it a SQLite file is used (fine for one person trying the tool) |
 | `OMNI_ASR_MODEL` | `models/Omnilingual-ASR-Khm` if the weights are there, else the Hugging Face repo | The ASR model |
-| `ASR_DATA_DIR` | `data/` | Where uploads, tasks and imported datasets are stored |
+| `ASR_DATA_DIR` | `data/` | Where the audio files and dataset clips are stored (everything else is in the database) |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `admin` / (none, required) | The administrator: made at start-up and kept in step with these values (its password cannot be changed in the app) |
+| `SECRET_KEY` | made once in `data/secret_key` | Signs the login cookies. Set the same value on every server behind a load balancer |
+| `SESSION_COOKIE_SECURE` | `0` | `1` when the tool is served over HTTPS |
 | `HF_TOKEN` | the login from `hf auth login` | Hugging Face token (a token typed in the app is used instead) |
-| `ANNOTATOR_NAME` | the computer's user name | Saved as the annotator / reviewer of your changes |
 | `CER_PASS` / `CER_BAD` | `0.10` / `0.50` | Dataset cleaning: CER limits for *passed* / *likely bad* |
-| `HOST` / `PORT` | `127.0.0.1` / `5000` | Where the web server listens |
+| `HOST` / `PORT` | `127.0.0.1` / `5100` | Where the API listens |
+| `WEB_URL` | (none) | The web app's address; opening the API's `/` in a browser goes there |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` / `POSTGRES_PORT` | | Used by `docker-compose.yml` to create the database container |
+
+The web app has its own `frontend/.env.local` (see [frontend/.env.example](frontend/.env.example)): `API_URL`, where the Flask API
+listens (default `http://127.0.0.1:5100`). The browser only talks to the web app, which forwards `/api/*` to Flask,
+so the login cookie stays on one address.
 | `FLASK_DEBUG` | `0` | `1` turns on the Flask debugger (only on your own computer) |
 
 ### Security
 
-The tool has **no login**. Anyone who can open its web page can read, change and delete the data. Keep the default `HOST=127.0.0.1` (only your computer), or run it only on a network you trust. Never turn on `FLASK_DEBUG=1` when other people can reach the server: the debugger can run any code. Hugging Face tokens typed into the app are used for that request only and are not saved.
+Every page and API call needs a login. Passwords are stored as salted hashes in the database; after 5 wrong passwords a user name has to wait a minute. Changing a password or deactivating a user logs them out everywhere.
+
+To let a team use it, run the web app with `npm run build && npm start`, put it behind HTTPS (for example a reverse proxy such as nginx or Caddy) with `SESSION_COOKIE_SECURE=1`, and keep the Flask API on `127.0.0.1` so only the web app reaches it. Run the API as **one** process: background jobs (imports, checks, pushes) live in its memory. Never turn on `FLASK_DEBUG=1` when other people can reach the server: the debugger can run any code. Hugging Face tokens typed into the app are used for that request only and are not saved.
 
 ## Project structure
 
+The code is organised by feature: each backend package holds its logic and its HTTP routes; the web app has one
+page per screen and shared components.
+
 ```
-app.py                  Entry point (python app.py)
-backend/                Flask backend
-├── routes/             HTTP API, one blueprint per feature (see docs/api.md)
-├── services/           Logic: audio, tasks, export, text normalization, quality checks,
-│                       Hugging Face Hub (read / write parquet), background jobs
-└── asr/omni_asr.py     Omnilingual-ASR-Khm in plain PyTorch, with CTC word timings
-frontend/               Web UI served by Flask, plain HTML / CSS / JavaScript, no build step
-tests/                  pytest tests (temporary data folder, ASR and Hub mocked)
-docs/                   User guide and API reference
-models/                 Model config and vocabulary (weights downloaded separately)
-data/                   Created at runtime, not in git
+app.py                      Entry point of the API (python app.py)
+.env.example                Settings template (copy to .env)
+docker-compose.yml          PostgreSQL in Docker
+backend/                    Flask JSON API
+├── __init__.py             create_app(): config, database, login check, blueprints
+├── config.py               Settings (environment variables / .env)
+├── pages.py                / of the API (points to the web app)
+├── core/                   Shared: database (db.py: tables), JSON-import of old data (legacy.py), audio,
+│                           text normalization, background jobs, Hugging Face Hub (parquet), ZIP export
+├── auth/                   Users and roles
+│   ├── roles.py            Roles and their permissions (change what a role may do here)
+│   ├── users.py            Accounts (hashed passwords)
+│   ├── guard.py            Logged-in user, permission checks, wrong-password limit
+│   ├── activity.py         Activity log and user status
+│   └── routes.py           /api/auth/* (sign in, password), /api/users and /api/activity (admin)
+├── asr/                    Omnilingual-ASR-Khm in plain PyTorch, model loader, /transcribe
+├── annotation/             Workflow 1: Upload & Crop, tasks, packages
+│   ├── audios.py, tasks.py Audio and tasks, members, access
+│   ├── review.py           Package review: annotating -> inspection -> acceptance
+│   ├── access.py           Access checks shared by the routes
+│   └── routes/             audios, media, tasks, export
+└── cleaning/               Workflow 2: Hugging Face dataset cleaning
+    ├── datasets.py         Imported batches, review, members
+    ├── quality.py          CER and audio / text checks
+    └── routes.py
+frontend/                   Next.js web app (TypeScript, App Router)
+├── next.config.ts          Forwards /api/* to the Flask API (API_URL)
+└── src/
+    ├── app/                login/, and behind the login (app)/: tasks/, tasks/[id]/, upload/,
+    │                       datasets/, datasets/[id]/, users/
+    ├── components/         Shell (menu, header), session (user, permissions), notify, dialogs,
+    │                       CutEditorPanel, task/ (package view, review bar)
+    ├── lib/                api client, types, review stages, task store, cut-editor.ts (the waveform editor)
+    └── styles/             CSS
+tests/                      pytest (SQLite per test, or TEST_DATABASE_URL=postgresql://...; ASR and Hub mocked)
+docs/                       User guide and API reference
+models/                     Model config and vocabulary (weights downloaded separately)
+data/                       Created at runtime, not in git (audio files, dataset clips)
 ```
 
 The [HTTP API](docs/api.md) can also be used from scripts.
@@ -138,7 +247,9 @@ Contributions are welcome: bug reports, Khmer text-normalization rules, new qual
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest
+python -m pytest                                   # SQLite
+TEST_DATABASE_URL=postgresql://... python -m pytest  # on PostgreSQL (an empty test database: its tables are dropped)
+cd frontend && npm run typecheck && npm run build
 ```
 
 ## About the model

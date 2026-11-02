@@ -1,0 +1,11 @@
+/* Login page */
+.login-page { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+.login-card { width:min(380px, 100%); background:#fff; border:1px solid var(--border); border-radius:var(--r); padding:28px;
+              display:flex; flex-direction:column; gap:14px; box-shadow:0 8px 30px rgba(15,23,42,.06); }
+.login-brand { display:flex; align-items:center; gap:12px; font-size:var(--fs-lg); font-weight:600; }
+.login-brand svg { width:30px; height:30px; }
+.login-card h1 { margin:6px 0 0; font-size:var(--fs-xl); font-weight:600; }
+.login-card p { margin:0; }
+.login-card .fld { display:flex; flex-direction:column; gap:6px; font-size:var(--fs-md); }
+.login-card button { margin-top:4px; }
+.small-print { font-size:var(--fs-xs); }

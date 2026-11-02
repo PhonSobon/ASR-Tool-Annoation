@@ -10,7 +10,9 @@ import numpy as np
 import pyarrow.parquet as pq
 import pytest
 
-from backend.services import hub, quality, recognizer
+from backend.asr import recognizer
+from backend.cleaning import quality
+from backend.core import hub
 from conftest import make_wav
 
 TEXTS = ["សួស្តី ពិភពលោក", "លេខ ១០ ម៉ែត្រ", "សួស្តី ពិភពលោក", "", "abc #1"]
@@ -68,7 +70,7 @@ def wait_job(client, ds_id):
 
 @pytest.fixture
 def ds(client, monkeypatch):
-    monkeypatch.setattr(hub, "parquet_files", lambda *a: [("main", "x.parquet")])
+    monkeypatch.setattr(hub, "parquet_files", lambda *a: ([("main", "x.parquet")], False))
     monkeypatch.setattr(hub, "iter_rows", lambda repo, files, cols, token, start, max_rows, on_file:
                         fake_rows(min(len(TEXTS), start + max_rows) if max_rows else len(TEXTS), start))
     r = client.post("/api/datasets", json={"repo": "someone/khmer", "split": "train", "audio_column": "audio",
@@ -102,8 +104,8 @@ def test_bad_import_requests(client):
 
 def test_review_text_status_trim(client, ds):
     url = f"/api/datasets/{ds}/items/1"
-    it = client.patch(url, json={"text": "លេខ ដប់ ម៉ែត្រ", "status": "accepted", "reviewer": "me"}).json
-    assert it["status"] == "accepted" and it["reviewer"] == "me" and "digits" not in it["flags"]
+    it = client.patch(url, json={"text": "លេខ ដប់ ម៉ែត្រ", "status": "accepted"}).json
+    assert it["status"] == "accepted" and it["reviewer"] == "admin" and "digits" not in it["flags"]
     assert client.patch(url, json={"trim": [0.2, 1.5]}).json["trim"] == [0.2, 1.5]
     assert client.patch(url, json={"trim": [1, 1.05]}).status_code == 400
     assert client.patch(url, json={"status": "maybe"}).status_code == 400
@@ -275,7 +277,7 @@ def test_read_row_range(monkeypatch, tmp_path):
 
 
 def test_import_batches(client, monkeypatch):
-    monkeypatch.setattr(hub, "parquet_files", lambda *a: [("main", "x.parquet")])
+    monkeypatch.setattr(hub, "parquet_files", lambda *a: ([("main", "x.parquet")], False))
     monkeypatch.setattr(hub, "iter_rows", lambda repo, files, cols, token, start, max_rows, on_file:
                         fake_rows(min(len(TEXTS), start + max_rows), start))
     body = {"repo": "someone/khmer", "split": "train", "audio_column": "audio", "text_column": "transcription",
@@ -299,7 +301,7 @@ def test_import_batches(client, monkeypatch):
 
 
 def test_batches_push_to_one_repo(client, monkeypatch):
-    monkeypatch.setattr(hub, "parquet_files", lambda *a: [("main", "x.parquet")])
+    monkeypatch.setattr(hub, "parquet_files", lambda *a: ([("main", "x.parquet")], False))
     monkeypatch.setattr(hub, "iter_rows", lambda repo, files, cols, token, start, max_rows, on_file:
                         fake_rows(min(len(TEXTS), start + max_rows), start))
     made = client.post("/api/datasets", json={

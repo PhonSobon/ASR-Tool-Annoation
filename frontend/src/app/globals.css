@@ -1,0 +1,17 @@
+/* Every stylesheet of the app (plain CSS, the same class names as before the move to Next.js). */
+@import "../styles/base.css";
+@import "../styles/layout.css";
+@import "../styles/tasks.css";
+@import "../styles/audio-list.css";
+@import "../styles/editor.css";
+@import "../styles/crops.css";
+@import "../styles/package.css";
+@import "../styles/review-flow.css";
+@import "../styles/datasets.css";
+@import "../styles/users.css";
+@import "../styles/notify.css";
+@import "../styles/login.css";
+@import "../styles/home.css";
+@import "../styles/activity.css";
+
+.boot { padding: 40px; text-align: center; }

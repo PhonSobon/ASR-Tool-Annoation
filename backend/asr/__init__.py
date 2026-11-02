@@ -1,1 +1,1 @@
-"""Speech recognition models."""
+"""Speech recognition: the model, its loader and the routes."""

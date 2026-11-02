@@ -1,0 +1,37 @@
+/* Upload & Crop page: steps, drop zone, cut length, waveform cut editor, push bar */
+.step { display:flex; align-items:center; gap:8px; font-weight:600; font-size:var(--fs-md); margin:0 0 10px; }
+.step:not(:first-child) { margin-top:18px; }
+.step .num { width:22px; height:22px; border-radius:50%; background:var(--primary); color:#fff; font-size:var(--fs-xs);
+             display:inline-flex; align-items:center; justify-content:center; }
+.drop { display:flex; align-items:center; justify-content:center; min-height:72px; padding:14px;
+        border:2px dashed #cbd5e1; border-radius:var(--r); color:var(--muted); cursor:pointer; text-align:center; }
+.drop:hover, .drop.over { border-color:var(--primary); background:#eff6ff; color:var(--primary); }
+.presets { display:flex; gap:6px; }
+
+.preset.on, .preset.on:hover:not(:disabled) { background:var(--primary); border-color:var(--primary); color:#fff; }
+.secs { display:flex; align-items:center; gap:6px; font-size:var(--fs-md); color:var(--muted); }
+.secs input { width:90px; }
+
+/* waveform cut editor */
+.wavepanel { position:sticky; top:var(--bar-h); z-index:10; box-shadow:0 6px 16px rgba(15,23,42,.08); padding:12px 16px; }
+.wave-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; margin-bottom:8px; }
+.wave-head b { font-size:var(--fs-md); word-break:break-all; }
+.wavebox { position:relative; border:1px solid var(--border); border-radius:var(--r-sm); overflow:hidden; background:#fff; }
+#wave { display:block; width:100%; cursor:crosshair; }
+.hbar { overflow-x:auto; overflow-y:hidden; height:14px; margin-top:2px; }
+.hbar > div { height:1px; }
+.controls { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; margin-top:10px; padding:10px 14px;
+            background:#f3f4f6; border-radius:var(--r); font-size:var(--fs-md); }
+.clock { font-variant-numeric:tabular-nums; min-width:170px; }
+.controls label { display:flex; align-items:center; gap:8px; color:#374151; }
+.controls input[type=range] { width:130px; accent-color:var(--primary); }
+.controls .sep { width:1px; height:24px; background:#d1d5db; }
+.controls output { font-variant-numeric:tabular-nums; min-width:38px; font-size:var(--fs-md); color:var(--muted); }
+.hint { font-size:var(--fs-xs); color:var(--muted); margin-top:8px; }
+.hint kbd { font-family:inherit; font-size:var(--fs-xs); font-weight:500; background:#fff; border:1px solid var(--border); border-bottom-width:2px; border-radius:var(--r-sm); padding:0 4px; }
+
+/* push to task */
+.pushbar { position:sticky; bottom:0; z-index:9; box-shadow:0 -6px 16px rgba(15,23,42,.08); }
+.pushbar .step { margin-bottom:8px; }
+.pushbar #taskName { width:min(320px, 60vw); }
+.pick-links { font-size:var(--fs-md); color:var(--muted); display:flex; gap:4px; align-items:center; }

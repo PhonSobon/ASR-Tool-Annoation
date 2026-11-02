@@ -9,4 +9,7 @@ pyarrow
 soundfile
 soxr
 pyyaml
+sqlalchemy>=2.0
+psycopg[binary]>=3.1
+python-dotenv
 audioop-lts; python_version >= "3.13"  # pydub needs audioop, removed from Python 3.13
