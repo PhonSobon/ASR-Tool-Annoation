@@ -2,7 +2,9 @@
 .pkg-bar { padding:12px 16px; }
 .pkg-bar-row { display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; font-size:var(--fs-md); }
 .pkg-bar-row + .pkg-bar-row { margin-top:8px; }
-.pkg-id b { font-weight:600; }
+.pkg-id { min-width:0; max-width:100%; }
+.pkg-id b { font-weight:600; overflow-wrap:anywhere; }
+#pkgWorkView { min-width:0; }
 .pkg-nav { display:inline-flex; align-items:center; gap:8px; font-variant-numeric:tabular-nums; }
 .pkg-nav button { height:var(--h-sm); padding:0 10px; background:#fff; color:var(--text-2); border:1px solid var(--border-2); }
 

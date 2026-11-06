@@ -7,7 +7,7 @@ import { CutEditorPanel } from "@/components/CutEditorPanel";
 import { Icon } from "@/components/Icon";
 import { useNotify } from "@/components/notify";
 import { useSession } from "@/components/session";
-import { api, decodePeaks, getJson } from "@/lib/api";
+import { api, decodePeaks, download, getJson } from "@/lib/api";
 import type { CutEditor, EditorHooks } from "@/lib/cut-editor";
 import { fmtT, r3 } from "@/lib/format";
 import { cropState, handTyped, inTab, liveParts, STATUS, syncCrop } from "@/lib/review";
@@ -252,6 +252,10 @@ export function PackageView({ store, index, position, onStep, onBack, onAllDone 
           <button className="sec back" onClick={() => setSpec(true)}><Icon name="file" /> Annotation Specification</button>
           <span className="pkg-id">Package ID: <b>{c.pkg}</b></span>
           <span className={"badge " + st}>{STATUS[st]}</span>
+          {can("data.export") && <button className="sec back" title="Download the audio of this package as one WAV file"
+            onClick={() => download(`/api/audios/${c.audio.id}/download?` + new URLSearchParams(
+              { start: String(c.seg.start), end: String(c.seg.end), name: c.pkg.replace(/\.[^.]+$/, "") }))}>
+            <Icon name="download" /> Download audio</button>}
           <span style={{ flex: 1 }} />
           <span className="muted">Task ID: {store.task.id}</span>
           {completeBtn}
@@ -280,7 +284,7 @@ export function PackageView({ store, index, position, onStep, onBack, onAllDone 
             {["14px", "16px", "18px", "20px", "24px"].map(f => <option key={f}>{f}</option>)}
           </select>
           <span style={{ flex: 1 }} />
-          {can("asr.run") && <button className="sec" disabled={running || c.seg.deleted || !editable} onClick={recognizeAll}
+          {can("asr.run") && !c.seg.imported && <button className="sec" disabled={running || c.seg.deleted || !editable} onClick={recognizeAll}
                                      title="Recognize every segment of this package that has no text yet"><Icon name="recognize" /> Recognize all segments</button>}
           {editable && <button className="sec" onClick={toggleSkip}
                                title={c.seg.deleted ? "Put this package back into the export" : "Leave the whole package out of the export (noise, music, no speech…)"}>
@@ -289,7 +293,7 @@ export function PackageView({ store, index, position, onStep, onBack, onAllDone 
         <div className="table-wrap seg-wrap">
           <table className="seg-table">
             <colgroup><col style={{ width: 80 }} /><col style={{ width: 105 }} /><col style={{ width: 105 }} /><col style={{ width: 90 }} />
-              <col style={{ width: 140 }} /><col /><col /><col style={{ width: 130 }} /></colgroup>
+              <col style={{ width: 140 }} /><col /><col /><col style={{ width: 160 }} /></colgroup>
             <thead><tr>
               <th className="c">Segment No.</th><th className="c">Start Position</th><th className="c">End Position</th><th className="c">Duration (s)</th>
               <th className="req">Role</th><th className="req">Annotation Text</th><th className="req">Normalized Text</th><th className="c">Action</th>
@@ -314,8 +318,17 @@ export function PackageView({ store, index, position, onStep, onBack, onAllDone 
                                                            onClick={() => { s.normEdited = false; scheduleNorm(s, 0); render(); }}><Icon name="restore" /> Auto-normalize</button>}</td>
                     <td><div className="acts">
                       <button className="icon" title="Play this segment" aria-label="Play this segment" onClick={() => { ed?.select(s); ed?.playFrom(s.start, s.end); }}><Icon name="play" /></button>
-                      {can("asr.run") && editable && <button className="icon" title="Recognize this segment" aria-label="Recognize this segment"
+                      {can("asr.run") && editable && !c.seg.imported && <button className="icon" title="Recognize this segment" aria-label="Recognize this segment"
                                                              disabled={s.deleted || s.state === "running"} onClick={() => recognizeSeg(s, true)}><Icon name="recognize" /></button>}
+                      {editable && <button className="icon" title="Cut this segment: then click the waveform where to cut it"
+                                           aria-label="Cut this segment" disabled={s.deleted}
+                                           onClick={() => {
+                                             if (!ed) return;
+                                             ed.select(s);
+                                             ed.setCutMode(true);
+                                             ed.setStatus(`Click the waveform inside segment ${k + 1} (${fmtT(s.start)} – ${fmtT(s.end)}) where you want to cut it.`);
+                                             document.querySelector(".wavepanel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                                           }}><Icon name="scissors" /></button>}
                       {editable && <button className="icon" title={s.deleted ? "Restore this segment" : "Leave this segment out of the export (can be restored)"}
                                            aria-label={s.deleted ? "Restore this segment" : "Leave this segment out"} onClick={() => ed?.toggleDelete(s)}>
                         <Icon name={s.deleted ? "restore" : "trash"} /></button>}

@@ -11,7 +11,7 @@ import { getJson } from "@/lib/api";
 import type { Me } from "@/lib/types";
 
 const STEPS: { icon: IconName; title: string; text: string }[] = [
-  { icon: "upload", title: "Upload & Crop", text: "Cut long recordings into packages." },
+  { icon: "upload", title: "Load Data", text: "Cut long recordings, or load a dataset that has its text." },
   { icon: "recognize", title: "Annotate", text: "Transcribe with help from the Khmer ASR." },
   { icon: "search", title: "Inspect", text: "Pass, fix, or return to the annotator." },
   { icon: "check-circle", title: "Accept", text: "Final approval of inspected packages." },

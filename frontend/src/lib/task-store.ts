@@ -24,7 +24,7 @@ export class TaskStore {
               private onError: (message: string) => void) {
     this.crops = task.audios.flatMap(a => a.segments.map((seg, k) => {
       ensureParts(seg);
-      return { audio: a, seg, no: k + 1, pkg: pkgName(a.name, k + 1) };
+      return { audio: a, seg, no: k + 1, pkg: seg.imported ? a.name : pkgName(a.name, k + 1) };   // a loaded clip: its file name
     }));
   }
 

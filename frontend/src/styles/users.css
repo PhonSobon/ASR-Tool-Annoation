@@ -14,14 +14,33 @@ dialog.confirm .fld input { width:100%; }
 .mem-group legend { font-weight:600; font-size:var(--fs-md); padding:0 4px; }
 .mem-group label { display:flex; align-items:center; gap:8px; padding:4px 0; font-size:var(--fs-md); }
 .mem-group label .muted { margin-left:auto; font-size:var(--fs-xs); }
+.mem-claim p { margin:2px 0 4px; font-size:var(--fs-xs); }
 
 .user-form { align-items:end; }
 .user-table tr.inactive td { color:var(--muted); }
-.u-acts a { color:var(--primary); cursor:pointer; }
-.u-acts a.u-del { color:var(--err); }
+.user-table td { vertical-align:middle; }
+.user-table .u-no { width:48px; text-align:center; color:var(--muted); font-variant-numeric:tabular-nums; }
+.u-name { display:inline-flex; align-items:center; gap:8px; white-space:nowrap; }
+.u-name .pill { font-size:var(--fs-xs); }
+.u-avatar { width:28px; height:28px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; flex:none;
+            font-size:var(--fs-xs); font-weight:600; color:#fff; background:#64748b; }
+.u-avatar.r-admin { background:#7c3aed; }
+.u-avatar.r-manager { background:#2563eb; }
+.u-avatar.r-annotator { background:#0891b2; }
+.u-avatar.r-inspector { background:#d97706; }
+.u-avatar.r-acceptor { background:#16a34a; }
+.u-fullname { width:100%; min-width:160px; border-color:transparent; background:transparent; }
+.u-fullname:hover { border-color:var(--border); }
+.u-fullname:focus { border-color:var(--primary); background:#fff; }
+.user-table tr.inactive .u-avatar { opacity:.5; }
+.user-table .u-acts-h { text-align:center; }
+.u-acts { justify-content:center; }
+.u-acts .icon-link { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:var(--r-sm); color:var(--text-2); }
+.u-acts .icon-link:hover { background:var(--hover); color:var(--text); }
+.u-acts .u-del:hover:not(:disabled) { color:var(--err); }
 .users-roles { margin-top:12px; }
 .me-role .role-mark { display:inline-block; width:8px; height:8px; margin:0 4px 0 0; vertical-align:1px; }
-.user-table td:first-child b, .act-table td:first-child b { white-space:nowrap; }
+.act-table td:first-child b { white-space:nowrap; }
 
 /* Password rules checklist (components/PasswordRules.tsx) */
 .pw-rules { list-style:none; margin:2px 0 0; padding:0; display:grid; grid-template-columns:1fr 1fr; gap:3px 14px; font-size:var(--fs-xs); color:var(--muted); }

@@ -22,6 +22,8 @@ export interface EditorHooks {
   saveState?: (text: string, kind?: "ok" | "err" | "") => void;
   playing?: (playing: boolean) => void;
   undoState?: (canUndo: boolean, canRedo: boolean) => void;
+  /** the cut tool was turned on / off */
+  cutMode?: (on: boolean) => void;
 }
 
 export interface EditorSession {
@@ -52,6 +54,11 @@ export class CutEditor {
   private hover: number | null = null;
   private playEnd: number | null = null;
   private ticking = false;
+  /** The user scrolled the timeline away from the playhead: do not pull the view back while playing, until the
+   *  playhead comes into view again, or they play / click / use the arrow keys. */
+  private looking = false;
+  /** Cut tool: a click on the waveform cuts the segment there (no need to play or move the playhead first). */
+  cutMode = false;
   private dragRange: [number, number] | null = null;
   private undoStack: string[] = [];
   private redoStack: string[] = [];
@@ -67,21 +74,39 @@ export class CutEditor {
       this.off.push(() => t.removeEventListener(ev, fn, opt));
     };
     on(el.hbar, "scroll", () => this.requestDraw());
+    // the user takes the scrollbar (drag, click, wheel, touch): stop following the playhead
+    for (const ev of ["pointerdown", "wheel", "touchstart"]) on(el.hbar, ev, () => this.lookAround(), { passive: true });
     on(el.zoom, "input", () => this.applyZoom(this.pos, Math.min(this.viewW(), Math.max(0, this.X(this.pos)))));
     on(el.gain, "input", () => { this.gain = +el.gain.value; this.draw(); });
     on(el.speed, "change", () => { this.player.playbackRate = +el.speed.value; });
-    on(window, "resize", () => this.session && this.applyZoom(this.pos));
-    on(el.canvas, "mousedown", (e: MouseEvent) => this.mouseDown(e));
+    // the box changes width with the window and with the page layout: keep the waveform fitting it
+    let width = 0;
+    const ro = new ResizeObserver(() => {
+      const w = el.box.clientWidth;
+      if (w && w !== width) { width = w; if (this.session) this.applyZoom(this.pos, Math.min(w, Math.max(0, this.X(this.pos)))); }
+    });
+    ro.observe(el.box);
+    this.off.push(() => ro.disconnect());
+    on(el.canvas, "mousedown", (e: MouseEvent) => { this.looking = false; this.mouseDown(e); });
     on(el.canvas, "mousemove", (e: MouseEvent) => {
       if (!this.session) return;
       this.hover = this.tAt(e);
-      el.canvas.style.cursor = this.boundaryNear(e) > 0 && !this.readOnly ? "ew-resize" : "crosshair";
+      el.canvas.style.cursor = this.cutMode && !this.readOnly ? "col-resize"
+                             : this.boundaryNear(e) > 0 && !this.readOnly ? "ew-resize" : "crosshair";
       this.requestDraw();
     });
     on(el.canvas, "mouseleave", () => { this.hover = null; this.requestDraw(); });
     on(el.canvas, "dblclick", (e: MouseEvent) => { const k = this.boundaryNear(e); if (k > 0) this.merge(k); });
     on(el.canvas, "wheel", (e: WheelEvent) => {
-      if (!this.session || !e.ctrlKey) return;
+      if (!this.session) return;
+      if (!e.ctrlKey) {   // zoomed in: the mouse wheel / a trackpad swipe over the waveform scrolls it left and right
+        const dx = Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+        if (!dx || el.hbar.scrollWidth <= el.hbar.clientWidth) return;   // nothing to scroll: the page scrolls
+        e.preventDefault();
+        this.lookAround();
+        el.hbar.scrollLeft += dx * (e.deltaMode === 1 ? 16 : 1);
+        return;
+      }
       e.preventDefault();
       const t = this.tAt(e), atX = e.clientX - el.canvas.getBoundingClientRect().left;
       el.zoom.value = String(Math.min(100, Math.max(0, +el.zoom.value + (e.deltaY < 0 ? 8 : -8))));
@@ -117,7 +142,8 @@ export class CutEditor {
     if (!this.player.src.endsWith(src)) this.player.src = src;
     this.el.zoom.value = "0";
     this.updateUndo(); this.showClock();
-    requestAnimationFrame(() => this.applyZoom(0));
+    this.el.hbar.scrollLeft = 0; this.looking = false;   // a package opens at its start
+    requestAnimationFrame(() => { this.applyZoom(); this.el.hbar.scrollLeft = 0; this.draw(); });
   }
 
   /** Replace all segments (open, or a new cut length) and select the first one */
@@ -203,6 +229,33 @@ export class CutEditor {
     this.segs.splice(this.segs.indexOf(a) + 1, 0, b);
     [a, b].forEach(staleNorm);
     return b;
+  }
+
+  /** Turn the cut tool on / off (toggle when `on` is left out). */
+  setCutMode(on = !this.cutMode) {
+    if (this.readOnly) on = false;
+    if (on === this.cutMode) return;
+    this.cutMode = on;
+    this.hooks.cutMode?.(on);
+    this.setStatus(on ? "Cut tool on: click the waveform where you want to cut — each click cuts there. Press C or Esc to stop."
+                      : "Cut tool off: click selects a segment again, drag crops a range.");
+    this.requestDraw();
+  }
+
+  /** Cut the segment under time t at t. */
+  cutAt(t: number) {
+    if (this.readOnly || !this.session) return;
+    t = r3(t);
+    const s = this.segs.find(x => t >= x.start && t < x.end);
+    if (!s) return this.setStatus("There is no segment there to cut.");
+    if (t <= s.start + 0.1 || t >= s.end - 0.1)
+      return this.setStatus(`Too close to the edge of segment ${this.segs.indexOf(s) + 1} — cut at least 0.1 s from its start and end.`);
+    this.pushUndo();
+    const b = this.splitAt(s, t);
+    this.select(s);
+    this.afterStructure();
+    this.setStatus(`Cut at ${fmtT(t)}: segment ${this.segs.indexOf(s) + 1} and ${this.segs.indexOf(b) + 1}.` +
+                   (this.cutMode ? " Click again to cut more, C or Esc to stop." : ""));
   }
 
   cutHere() {
@@ -371,10 +424,16 @@ export class CutEditor {
       g.fillStyle = "#4b5563"; g.fillText(fmtT(t).slice(0, step < 1 ? -2 : -4), x + 3, 11);
     }
 
-    // hover line
+    // hover line (the cut tool shows where a click cuts)
     if (this.hover != null) {
       const x = Math.round(X(this.hover));
-      g.fillStyle = "rgba(15,23,42,.3)"; g.fillRect(x, top, 1, WAVE_H);
+      if (this.cutMode && !this.readOnly) {
+        g.fillStyle = "#dc2626"; g.fillRect(x - 1, top, 2, WAVE_H);
+        const label = "✂ " + fmtT(this.hover); g.font = "600 11px system-ui, sans-serif";
+        const tw = g.measureText(label).width + 8, lx = x + 4 + tw > w ? x - tw - 4 : x + 4;
+        g.fillStyle = "#dc2626"; g.fillRect(lx, top + 4, tw, 18);
+        g.fillStyle = "#fff"; g.fillText(label, lx + 4, top + 17);
+      } else { g.fillStyle = "rgba(15,23,42,.3)"; g.fillRect(x, top, 1, WAVE_H); }
     }
 
     // playhead with time label
@@ -401,6 +460,13 @@ export class CutEditor {
     if (!this.session || e.button !== 0) return;
     e.preventDefault();
     (document.activeElement as HTMLElement | null)?.blur?.();
+    if (this.cutMode && !this.readOnly) {   // cut tool: the click is the cut
+      const t = this.tAt(e);
+      this.looking = false;
+      this.seek(t);
+      this.cutAt(t);
+      return;
+    }
     const k = this.readOnly ? -1 : this.boundaryNear(e);
     const listen = (move: (ev: MouseEvent) => void, up: () => void) => {
       const done = () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", done); up(); };
@@ -457,14 +523,25 @@ export class CutEditor {
     this.showClock(); this.requestDraw();
   }
 
-  private follow() {   // keep the playhead on screen while playing
-    const x = this.X(this.pos), w = this.viewW();
-    if (x < 0 || x > w - 30) this.el.hbar.scrollLeft = this.pos * this.pps - w * 0.1;
+  private follow(force = false) {   // keep the playhead on screen while playing
+    const x = this.X(this.pos), w = this.viewW(), inView = x >= 0 && x <= w - 30;
+    if (force) this.looking = false;
+    if (this.looking) {                // the user is looking elsewhere: follow again once playback reaches the view
+      if (inView) this.looking = false;
+      return;
+    }
+    if (!inView) this.el.hbar.scrollLeft = this.pos * this.pps - w * 0.1;
+  }
+
+  private lookAround() {
+    if (this.looking || !this.session) return;
+    this.looking = true;
+    if (!this.player.paused) this.setStatus("Scrolling freely — the view follows the playhead again when it gets there, or press play / click the waveform.");
   }
 
   async playFrom(t: number, end: number | null = null) {
     if (!this.session) return;
-    this.pos = t; this.playEnd = end;
+    this.pos = t; this.playEnd = end; this.looking = false;
     this.player.playbackRate = +this.el.speed.value;
     try { this.player.currentTime = t + this.session.offset; await this.player.play(); }
     catch (e: any) { return this.setStatus("Cannot play: " + e.message); }
@@ -497,10 +574,12 @@ export class CutEditor {
     const target = e.target as HTMLElement;
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) { if (e.key === "Escape") target.blur(); return; }
     const k = e.key.toLowerCase();
+    if (k === "c" && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); return this.setCutMode(); }
+    if (e.key === "Escape" && this.cutMode) { e.preventDefault(); return this.setCutMode(false); }
     if (e.code === "Space") { e.preventDefault(); this.togglePlay(); }
     else if (k === "s" && !e.ctrlKey && !e.metaKey) { e.preventDefault(); this.cutHere(); }
     else if ((e.key === "Delete" || e.key === "Backspace") && this.sel) { e.preventDefault(); this.toggleDelete(this.sel); }
-    else if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); this.seek(this.pos + (e.key === "ArrowLeft" ? -1 : 1) * (e.shiftKey ? 1 : 0.1)); this.follow(); }
+    else if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); this.seek(this.pos + (e.key === "ArrowLeft" ? -1 : 1) * (e.shiftKey ? 1 : 0.1)); this.follow(true); }
     else if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !e.ctrlKey) { e.preventDefault(); this.stepSeg(e.key === "ArrowUp" ? -1 : 1); }
     else if ((e.ctrlKey || e.metaKey) && k === "z" && !e.shiftKey) { e.preventDefault(); this.undo(); }
     else if ((e.ctrlKey || e.metaKey) && (k === "y" || (k === "z" && e.shiftKey))) { e.preventDefault(); this.redo(); }

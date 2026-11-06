@@ -1,6 +1,6 @@
 "use client";
-// Users & Roles (Administrator only): add users with a default password, change their role, deactivate, set a new
-// default password, delete. Users replace the default with their own at the next sign-in; administrators do not change
+// Users & Roles (Administrator only): add users with a default password, change their full name and role in the
+// table, deactivate, set a new default password, delete. Users replace the default with their own at the next sign-in; administrators do not change
 // their own password (the one of .env is set there). The server keeps at least one active administrator.
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -19,7 +19,7 @@ interface UserRow {
 interface RoleRow { id: string; label: string; description: string; permissions: string[] }
 
 const PERM_TEXT: Record<string, string> = {
-  "users.manage": "Manage users and roles", "audio.upload": "Upload & Crop, make tasks", "task.manage": "Assign people, delete tasks",
+  "users.manage": "Manage users and roles", "audio.upload": "Load Data, make tasks", "task.manage": "Assign people, delete tasks",
   "task.view_all": "See every task", "task.annotate": "Annotate packages", "task.inspect": "Quality inspection",
   "task.accept": "Final acceptance", "asr.run": "Run the ASR", "data.export": "Download ZIPs", "hub.push": "Push to Hugging Face",
   "dataset.manage": "Import / check / delete datasets", "dataset.view_all": "See every dataset",
@@ -132,14 +132,18 @@ export default function UsersPage() {
         </div>
         <div className="table-wrap">
           <table className="pkg-table user-table">
-            <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Password</th><th>Last sign-in</th><th>Created</th><th>Action</th></tr></thead>
+            <thead><tr><th className="u-no">No.</th><th>Username</th><th>Full Name</th><th>Role</th><th>Status</th><th>Password</th>
+              <th>Last sign-in</th><th>Created</th><th className="u-acts-h">Action</th></tr></thead>
             <tbody>
-              {shown.map(u => {
+              {shown.map((u, k) => {
                 const self = u.username === me.username;
                 const fixedPw = self || u.username === envAdmin;
                 return (
                   <tr key={u.username} className={u.active ? "" : "inactive"}>
-                    <td><b>{u.name}</b><div className="pkg-sub">{u.username}{self ? " · you" : ""}</div></td>
+                    <td className="u-no">{k + 1}</td>
+                    <td><span className="u-name"><span className={`u-avatar r-${u.role}`} aria-hidden="true">{(u.name || u.username).trim()[0]?.toUpperCase()}</span>
+                      <b>{u.username}</b>{self && <span className="pill">you</span>}</span></td>
+                    <td><NameField user={u} onSave={name => patch(u.username, { name }, `Full name of ${u.username} saved.`)} /></td>
                     <td><select className="u-role" aria-label={`Role of ${u.username}`} disabled={self} value={u.role}
                                 onChange={e => patch(u.username, { role: e.target.value }, `${u.username} is now ${ROLE_LABEL[e.target.value]}.`)}>
                       {roles.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
@@ -150,16 +154,21 @@ export default function UsersPage() {
                          : <span className="st done">Own password</span>}</td>
                     <td>{u.last_login || <span className="muted">Never</span>}</td>
                     <td>{u.created}</td>
-                    <td className="u-acts">
-                      {!self && <><a onClick={() => toggleActive(u)}>{u.active ? "Deactivate" : "Activate"}</a> · </>}
-                      {!fixedPw && <><a onClick={() => setPwFor(u.username)}>Set default password</a> · </>}
-                      <a href={`/activity?user=${encodeURIComponent(u.username)}`}>Activity</a>
-                      {!self && <> · <a className="u-del" onClick={() => remove(u)}>Delete</a></>}
-                    </td>
+                    <td><div className="acts u-acts">
+                      {!self && <button className="icon" title={u.active ? "Deactivate (they cannot sign in; their work stays)" : "Activate again"}
+                                        aria-label={u.active ? `Deactivate ${u.username}` : `Activate ${u.username}`} onClick={() => toggleActive(u)}>
+                        <Icon name={u.active ? "x" : "check-circle"} /></button>}
+                      {!fixedPw && <button className="icon" title="Set a new default password" aria-label={`Set a default password for ${u.username}`}
+                                           onClick={() => setPwFor(u.username)}><Icon name="shield" /></button>}
+                      <a className="icon-link" title="Activity of this user" aria-label={`Activity of ${u.username}`}
+                         href={`/activity?user=${encodeURIComponent(u.username)}`}><Icon name="clock" /></a>
+                      {!self && <button className="icon u-del" title="Delete this user" aria-label={`Delete ${u.username}`} onClick={() => remove(u)}>
+                        <Icon name="trash" /></button>}
+                    </div></td>
                   </tr>
                 );
               })}
-              {!shown.length && <tr><td colSpan={7} className="empty">{filtering ? "No user matches these filters." : "No users yet."}</td></tr>}
+              {!shown.length && <tr><td colSpan={9} className="empty">{filtering ? "No user matches these filters." : "No users yet."}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -178,6 +187,16 @@ export default function UsersPage() {
                              onSet={pw => { setPwFor(null); patch(pwFor, { password: pw }, `New default password set for ${pwFor}.`); }} />}
     </section>
   );
+}
+
+/** The full name, edited in the table: saved on Enter or when the field loses focus (Esc = undo). */
+function NameField({ user, onSave }: { user: UserRow; onSave: (name: string) => void }) {
+  const [v, setV] = useState(user.name);
+  useEffect(() => setV(user.name), [user.name]);
+  const save = () => { const t = v.trim(); if (!t) setV(user.name); else if (t !== user.name) onSave(t); };
+  return <input className="u-fullname" aria-label={`Full name of ${user.username}`} value={v} maxLength={200}
+                onChange={e => setV(e.target.value)} onBlur={save}
+                onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setV(user.name); }} />;
 }
 
 function SetPassword({ username, onClose, onSet }: { username: string; onClose: () => void; onSet: (pw: string) => void }) {

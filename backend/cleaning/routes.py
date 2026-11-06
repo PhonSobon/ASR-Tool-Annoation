@@ -1,5 +1,7 @@
-"""Dataset cleaning: import a Hugging Face dataset, check it automatically, review clips, export / push to the Hub."""
+"""Dataset cleaning: import a Hugging Face dataset (or upload a folder of audio files + labels), check it
+automatically, review clips, export / push to the Hub."""
 import io
+import json
 import re
 import shutil
 
@@ -51,9 +53,11 @@ def inspect():
         return jsonify(error=str(e)), 400
     except Exception as e:
         return jsonify(error=f"Cannot read {data.get('repo')}: {e}"), 502
+    from ..annotation import importer
+
     for c in info["configs"]:
         for s in c["splits"]:
-            s["next_row"] = datasets.next_row(info["repo"], c["name"], s["name"])
+            s["next_row"] = importer.next_row(info["repo"], c["name"], s["name"])
     return jsonify(info)
 
 
@@ -167,6 +171,63 @@ def _importer(dataset_id, repo, config, split, cols, token, start, max_rows, tot
     return run
 
 
+# ---------- upload from a local folder ----------
+@bp.post("/datasets/local")
+@require("dataset.manage")
+def create_local():
+    """{name, members?} -> the new, empty dataset (state "uploading"). Then POST its files in parts
+    (/datasets/<id>/files) and finish it (/datasets/<id>/finish)."""
+    data = _body()
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify(error="Give the dataset a name"), 400
+    members = [m for m in (data.get("members") or []) if isinstance(m, str)]
+    return jsonify(datasets.summary(datasets.create_local(name[:200], members, guard.username()))), 201
+
+
+@bp.post("/datasets/<dataset_id>/files")
+def add_files(dataset_id):
+    """multipart: audio (one or more files), texts (JSON list: the label of each file, in the same order), names
+    (JSON list, optional: the path of each file in the folder) -> {added, skipped, failed: [{file, error}], count}."""
+    meta = _meta(dataset_id, "manage")
+    if not datasets.is_local(meta):
+        return jsonify(error="Files can only be added to an uploaded dataset"), 400
+    if busy := _busy(dataset_id):
+        return busy
+    files = request.files.getlist("audio")
+    try:
+        texts = json.loads(request.form.get("texts") or "[]")
+        names = json.loads(request.form.get("names") or "[]") or [f.filename for f in files]
+    except ValueError:
+        return jsonify(error="texts and names must be JSON lists"), 400
+    if not files:
+        return jsonify(error="No audio file in the request"), 400
+    if not isinstance(texts, list) or not isinstance(names, list) or len(texts) != len(files) or len(names) != len(files):
+        return jsonify(error="Send one text (and one name) per audio file"), 400
+    batch = [(str(n or f.filename or "").replace(chr(92), "/").strip("/")[:300], f.read(), str(t or ""))
+             for f, n, t in zip(files, names, texts)]
+    result = datasets.add_files(dataset_id, batch)
+    return jsonify({**result, "count": len(datasets.load_items(dataset_id))})
+
+
+@bp.post("/datasets/<dataset_id>/finish")
+def finish_local(dataset_id):
+    """{check?}: the upload is complete -> the dataset summary; with `check`, the ASR checks every clip (job)."""
+    meta = _meta(dataset_id, "manage")
+    if not datasets.is_local(meta):
+        return jsonify(error="Only an uploaded dataset can be finished"), 400
+    try:
+        datasets.finish_local(dataset_id)
+    except ValueError as e:
+        return jsonify(error=str(e)), 400
+    if _body().get("check"):
+        try:
+            jobs.start(dataset_id, "check", lambda job: datasets.run_checks(dataset_id, job))
+        except RuntimeError as e:
+            return jsonify(error=str(e)), 409
+    return jsonify(datasets.summary(dataset_id))
+
+
 @bp.get("/datasets/<dataset_id>")
 def get_dataset(dataset_id):
     meta = _meta(dataset_id)
@@ -175,18 +236,29 @@ def get_dataset(dataset_id):
 
 @bp.put("/datasets/<dataset_id>/members")
 def set_members(dataset_id):
-    """{members: [user, ...]}: the users who review this dataset."""
+    """{members: [user, ...], open?: bool}: the users who review this dataset, and whether other reviewers may claim
+    it themselves (open left out: unchanged)."""
     from ..auth import users
 
     _meta(dataset_id, "manage")
-    names = []
-    for name in (request.get_json(force=True, silent=True) or {}).get("members") or []:
+    data, names = _body(), []
+    for name in data.get("members") or []:
         name = str(name).strip().lower()
         if not users.exists(name):
             return jsonify(error=f"Unknown user {name!r}"), 400
         if name not in names:
             names.append(name)
-    return jsonify(members=datasets.update_meta(dataset_id, members=names)["members"])
+    meta = datasets.update_meta(dataset_id, members=names, **({"open": bool(data["open"])} if "open" in data else {}))
+    return jsonify(members=meta["members"], open=bool(meta.get("open")))
+
+
+@bp.post("/datasets/<dataset_id>/claim")
+def claim(dataset_id):
+    """The logged-in user becomes a reviewer of a dataset open for claiming -> the members."""
+    try:
+        return jsonify(members=datasets.claim(dataset_id, guard.current_user()))
+    except ValueError as e:
+        return jsonify(error=str(e)), 400
 
 
 @bp.delete("/datasets/<dataset_id>")
@@ -360,7 +432,9 @@ def push(dataset_id):
         cols = datasets.hub_columns(meta, [{"extra": it.get("extra") or {}} for it in items])
         stats = {"n": 0, "seconds": 0.0, "fixed": 0, "cer": []}
         b = datasets.batch(meta)
-        prefix = f"{split}-{b['prefix']}" if b else split
+        # every upload from a folder has its own files, so several uploads can be pushed to one repo
+        local = datasets.is_local(meta)
+        prefix = f"{split}-upload-{dataset_id}" if local else f"{split}-{b['prefix']}" if b else split
 
         def rows():
             for clip_id, pcm, rec in datasets.output_rows(dataset_id, include, trim):
@@ -379,7 +453,7 @@ def push(dataset_id):
             hub.write_shards(rows(), folder, prefix, cols,
                              progress=lambda k: job.progress(k, total, f"Preparing {k} / {total} clips…"))
             job.progress(total, total, f"Uploading {total} clips to {repo_id}…")
-            row = {"Batch": b["name"] if b else "all rows", "Split": split, "Clips": stats["n"],
+            row = {"Batch": meta["name"] if local else b["name"] if b else "all rows", "Split": split, "Clips": stats["n"],
                    "Hours": f"{stats['seconds'] / 3600:.2f}", "Rejected": sum(it["status"] == "rejected" for it in items),
                    "Text fixed": stats["fixed"], "Pushed": now()[:10]}
             url = hub.push(folder, repo_id, split, lambda old, splits: hub.dataset_card(
@@ -403,10 +477,14 @@ def _report(meta, include, trim):
     """What every batch of this source has in common (the numbers per batch are in the card's batch table)."""
     cfg = current_app.config
     kept = {"accepted": "accepted clips", "not_rejected": "all clips except rejected ones", "all": "all clips"}[include]
-    return "\n".join([
+    local = datasets.is_local(meta)
+    source = (f"- Source: audio files and their labels uploaded from a local folder; `file_name` is the path of each "
+              f"file in that folder; keeps its {kept}") if local else (
         f"- Source: [{meta['repo']}](https://huggingface.co/datasets/{meta['repo']}) "
         f"(config `{meta['config']}`, split `{meta['split']}`, text column `{meta['text_column']}`), cleaned in "
-        f"batches of rows; each batch keeps its {kept}",
+        f"batches of rows; each batch keeps its {kept}")
+    return "\n".join([
+        source,
         "- Audio: 16 kHz mono WAV" + (", long silence at the start / end trimmed" if trim else ""),
         f"- Automatic check: every clip recognized with "
         f"[Darayut/Omnilingual-ASR-Khm](https://huggingface.co/Darayut/Omnilingual-ASR-Khm) and compared with its text "
@@ -414,7 +492,8 @@ def _report(meta, include, trim):
         f"{cfg['CER_BAD']:.0%}); then reviewed by a person",
         f"- `{meta['text_column']}_normalized`: the final text normalized for training (zero-width spaces removed, "
         f"Khmer digits written 0-9, words separated by spaces with khmercut), corrected by a reviewer where needed",
-        "- Clip ids are `<split>_<source row>` (`<split>_<row>_<part>` when a reviewer cut a row in parts)",
+        "- Clip ids are `<split>_<source row>` (`<split>_<row>_<part>` when a reviewer cut a row in parts)" +
+        (" - for an upload, the row is the number of the file in the upload" if local else ""),
         f"- `original_{meta['text_column']}` is the text before review; `asr_cer` is the CER of the ASR against the "
         f"final text (empty if not checked); `review_status` is accepted / todo / rejected",
     ])

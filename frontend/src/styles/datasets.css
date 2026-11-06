@@ -12,6 +12,8 @@ label.inline { display:inline-flex; align-items:center; gap:6px; }
 
 /* cards */
 .ds-card .tc-tags .tag.hub { border-color:#ffd666; background:#fffbe6; color:#ad6800; }
+.ds-card .tc-tags .tag.local { border-color:#bfdbfe; background:#eff6ff; color:#1d4ed8; }
+.ds-card .warn-text { color:var(--run); display:flex; align-items:center; gap:4px; }
 .ds-card .bar.cat { display:flex; }
 .ds-card .bar.cat > div, .cat-bar > div { height:100%; transition:width .3s; }
 .c-pass { background:var(--ok); }
@@ -86,3 +88,31 @@ dialog.push-dlg h3 { margin:0 0 16px; font-size:var(--fs-lg); display:flex; alig
   .rv-texts, .push-grid { grid-template-columns:1fr; }
   .rv-trim { margin-left:0; }
 }
+
+/* upload from a folder */
+.src-switch { margin:0 0 10px; }
+.src-switch .preset { display:inline-flex; align-items:center; gap:6px; }
+.imp-summary { display:flex; flex-wrap:wrap; gap:6px 18px; margin:14px 0 8px; font-size:var(--fs-md); }
+.imp-summary > span { display:inline-flex; align-items:center; gap:4px; }
+.imp-summary .ok { color:#15803d; }
+.imp-summary .bad { color:var(--err); }
+.pair-table-wrap { max-height:340px; overflow:auto; border:1px solid var(--border); border-radius:var(--r-sm); margin-bottom:8px; }
+.pair-table { width:100%; border-collapse:collapse; font-size:var(--fs-md); }
+.pair-table th { position:sticky; top:0; background:var(--soft); text-align:left; padding:6px 10px; font-size:var(--fs-xs);
+                 text-transform:uppercase; letter-spacing:.04em; color:var(--muted); border-bottom:1px solid var(--border); }
+.pair-table td { padding:6px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+.pair-table td:first-child { width:35%; word-break:break-all; color:var(--muted); }
+.pair-table tr.missing td { background:var(--err-soft); }
+.pair-table i { color:var(--muted); }
+.up-progress { display:inline-flex; align-items:center; gap:8px; font-variant-numeric:tabular-nums; font-size:var(--fs-md); }
+.up-progress .bar { width:160px; margin-top:0; }
+
+/* a dataset laid out like a task: clip list and clip page */
+.ds-list td { vertical-align:top; }
+.ds-list td.t { max-width:520px; white-space:normal; overflow-wrap:anywhere; }
+.ds-list .flags { margin-top:6px; }
+.ds-list a.open { overflow-wrap:anywhere; }
+.ds-seg-table { min-width:960px; }
+.ds-seg-table td textarea { min-height:5.4em; }
+.ds-orig { margin:10px 0 0; font-size:var(--fs-md); }
+.ds-decide { margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }

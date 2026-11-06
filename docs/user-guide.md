@@ -34,7 +34,7 @@ Todo (annotator) --Complete--> Inspection --Pass--> Acceptance --Accept--> Done
 
 Nobody can inspect or accept a package they annotated themselves (except the administrator). A package that passed inspection can no longer be changed by its annotator. When you push a task to the Hub you choose **accepted** packages, packages that **passed inspection**, or all **completed** ones.
 
-Managers add people to a task or a dataset with the **Members** button on its page. Use the avatar (top right) to change your password or log out.
+Managers add people to a task or a dataset with the **Members** button on its page. In the same dialog, **Open for claiming** lets people pull work themselves: tick the roles (e.g. Annotators) that may claim the task, or allow reviewers to claim the dataset. Those users then see it under **Available to claim** in My Tasks / Dataset Cleaning and join it with **Claim task** / **Claim dataset**. Leave it unticked to assign people only. Use the avatar (top right) to change your password or log out.
 
 ---
 
@@ -42,7 +42,7 @@ Managers add people to a task or a dataset with the **Members** button on its pa
 
 Use this for long recordings (news, interviews, meetings, lectures) that must be cut into short clips and transcribed.
 
-### 1. Upload & Crop
+### 1. Load Data → Upload & cut audio
 
 1. Drop or choose one or more audio or video files. Any format FFmpeg can read works; everything is converted to 16 kHz mono WAV.
 2. Click an audio file to open its waveform.
@@ -53,7 +53,7 @@ This page shows only the waveform and the cut tools, with no text.
 
 ### 2. Push to a task
 
-Every audio file has a checkbox, which is ticked automatically once the file is cut. Enter a task name and click **Push N selected audio to task →**. The ticked files become one **task** (a batch of work). Unticked files stay on Upload & Crop for later.
+Every audio file has a checkbox, which is ticked automatically once the file is cut. Enter a task name and click **Push N selected audio to task →**. The ticked files become one **task** (a batch of work). Unticked files stay on Load Data for later.
 
 ### 3. Annotate the packages
 
@@ -82,54 +82,36 @@ Every change is saved on the server as you work, so you can close the browser an
 
 ---
 
-## Workflow 2: Clean a Hugging Face dataset
+## Workflow 2: Load a dataset that already has its text
 
-Use this for datasets that are already cut into clips with a transcript, for example [seanghay/khmer_mpwt_speech](https://huggingface.co/datasets/seanghay/khmer_mpwt_speech). Open **Dataset Cleaning**.
+Use this for speech that is already cut into clips with a transcript: a Hugging Face dataset (for example
+[seanghay/khmer_mpwt_speech](https://huggingface.co/datasets/seanghay/khmer_mpwt_speech)) or a folder of audio files
+with their labels. Open **Load Data** and choose **Hugging Face** or **Local folder**. The clips go straight into a new
+**task**: every clip is one package, named after its file, with its **text and normalized text already filled in**.
+There is nothing to recognize (the Recognize buttons are hidden for these packages): the annotator listens, fixes the
+text if needed and presses **✓ Complete**, then the package goes through inspection and acceptance like any other (see
+[Annotate the packages](#3-annotate-the-packages)). Assign the people with **Members** on the task.
 
-### 1. Import
+### Hugging Face
 
 1. Enter the dataset id (or its URL) and click **Load**. A token is only needed for private or gated datasets.
 2. Pick the config, split, audio column and text column. The usual transcript column (`transcription`, `sentence`, `text`, …) is chosen for you.
-3. Choose how much to import:
-   - **Small dataset:** leave **Rows per batch** empty to import the whole split as one dataset.
-   - **Big dataset (thousands to millions of rows):** set **Rows per batch** (for example 200) and **Batches** (how many to create now, up to 100). Each batch becomes its own card, such as `… · rows 200–399`, and reads **only its own rows** from the Hub, so the rest of the dataset is never downloaded. **Start at row** is filled with the first row not imported yet, and overlapping batches are refused. Keep importing the next batches until the split is done. Clip ids use the source row number (`train_000250`), so they never clash between batches.
-4. Leave **Check with the ASR after import** ticked to run step 2 automatically.
+3. Choose how much to load:
+   - **Small dataset:** leave **Clips per task** empty to load the whole split into one task.
+   - **Big dataset (thousands to millions of rows):** set **Clips per task** (for example 200) and **Tasks** (how many to make now, up to 100). Each task, such as `… · rows 200–399`, reads **only its own rows** from the Hub. **Start at row** is filled with the first row not loaded yet, and overlapping rows are refused.
+4. Click **Load into task**. The clips are downloaded in the background; the task page shows the progress and fills in as they arrive.
 
-Every clip is converted to 16 kHz mono WAV in `data/datasets/<id>/`. The list of imported datasets has search (by name, repo, or a row number to find its batch), a filter (*still to review*, *reviewed, not pushed*, *pushed*) and pages.
+### Local folder
 
-### 2. Automatic checks
+Drop the folder on the page (or click to pick it, or choose the files). The labels are matched to the audio in the browser before anything is sent:
 
-**Run checks** makes the local Omnilingual-ASR-Khm model recognize every clip and compares its output with the dataset text using the **character error rate (CER)**, ignoring spaces and punctuation. Audio and text problems are found during import:
+- **A text file per audio:** `wavs/a.wav` + `wavs/a.txt` (or `.lab`, or `a.json` with `{"text": "…"}`). The text file may be in another folder if no other audio has the same name.
+- **A JSON file:** `metadata.json` as this tool exports it (`[{"file": "wavs/a.wav", "text": "…"}, …]`), a list under a key (`{"data": [...]}`), a map `{"a.wav": "text", …}`, or JSON Lines / NeMo manifests (`.jsonl`, one `{"audio_filepath": "…", "text": "…"}` per line). An audio column such as `{"path": "a.wav"}` works too. Only the text is read.
+- **A metadata file:** `metadata.csv`, `.tsv`, `.txt` or Kaldi's `text`, one line per clip, such as `a.wav|text` (LJSpeech), `a.wav<tab>text`, `utt_id text…` or a CSV whose header names the columns (`file_name` / `path` / `audio` / `id` … and `transcription` / `text` / `sentence` …).
 
-| Problem | Severity | Meaning |
-|---|---|---|
-| No text, No speech, Too short (< 0.5 s), Duplicate audio, ASR heard nothing | likely bad | The clip is very likely unusable |
-| Digits, Latin letters, Symbols | review | The text does not show how it is spoken (`#១`, `125cc`, `១០`) |
-| Clipping, Quiet, Too long (> 30 s), Speaking rate | review | Bad audio, or text that is cut off or too long for the audio (rate far from the dataset median) |
-| Long silence, Same text | info | Silence at the ends can be trimmed; repeated sentences are shown |
+Audio formats: WAV, MP3, FLAC, OGG, Opus, M4A, AAC, WMA, WebM and MP4. The table shows each file with its label, the ones without a label first; those are left out unless you tick **Also upload … without a label**. Give the task a name and click **Load … into a task**. The files are sent in small parts (a part that fails is sent again) and the task opens when they are all there.
 
-Each clip gets a check result: **Passed** (CER ≤ 10 % and no problem), **Needs review**, **Likely bad** (CER > 50 % or a "likely bad" problem) or **Not checked**. The limits can be changed with `CER_PASS` and `CER_BAD`.
-
-> The ASR is a guide, not a judge. If the model was trained on the dataset you are cleaning, its CER on that dataset looks better than it really is. Listen to a sample of the passed clips too.
-
-### 3. Review
-
-- **Accept passing clips** accepts every passed clip at once (the CER limit can be changed).
-- The rest are listed worst first. The **review panel** shows the waveform and the dataset text next to what the ASR heard, with the differences highlighted (red = in the text but not heard, green = heard but missing from the text).
-- Fix the **Final text**, take the ASR text (**U**), or reject the clip with a reason (**R**).
-- **Trim:** *Keep* sets the start and end of the clip; **Trim silence** (**T**) cuts the silence at both ends.
-- **Cut:** if a clip holds two sentences, click the waveform where it should be cut and press **✂ Cut here** (**S**). The row becomes two parts (`row · 1`, `row · 2`); the first keeps the text and the second starts empty. Both go back to review. **Join next part** puts them back together.
-- **Check this clip** runs the ASR on the open clip only, with its trim applied.
-- **Normalized text** is made automatically from the final text. Type in it to correct it; **↺ Auto-normalize** goes back to the automatic one.
-
-Every change is saved at once.
-
-### 4. Output
-
-Choose what goes out (*accepted clips only*, *everything except rejected*, or *all clips with their review status*) and whether long silence at the ends is trimmed. Then:
-
-- **Export ZIP:** `<name>/wavs/*.wav` and `metadata.json`.
-- **Push to Hugging Face:** uploads parquet to a Hub repo. All batches of a big dataset can go to the **same repo**: each batch writes its own files and replaces only its own earlier upload. The dialog offers the repo that the other batches were pushed to.
+Every clip is converted to 16 kHz mono WAV. Export and push the task like any other ([Export or push](#4-export-or-push)).
 
 ---
 
@@ -166,9 +148,6 @@ Choose what goes out (*accepted clips only*, *everything except rejected*, or *a
 ]
 ```
 
-### Dataset cleaning ZIP (workflow 2)
-
-`<name>/wavs/<split>_<row>.wav` (`<split>_<row>_<part>.wav` for a cut row) and `metadata.json` with `text`, `text_normalized`, `original_text`, `asr_text`, `cer`, `status`, `reason`, `flags`, `source_index` and the source's other columns.
 
 ### Hub parquet columns
 
@@ -199,7 +178,7 @@ Choose what goes out (*accepted clips only*, *everything except rejected*, or *a
 
 ## Keyboard shortcuts
 
-### Cut editor (Upload & Crop and package page)
+### Cut editor (Load Data and package page)
 
 | Action | How |
 |---|---|
@@ -207,7 +186,9 @@ Choose what goes out (*accepted clips only*, *everything except rejected*, or *a
 | Select a crop / move the playhead | Click the waveform; ↑ / ↓ or ⏮ / ⏭ for the previous / next crop |
 | Step the playhead | ← / → (Shift for 1 s steps) |
 | Play / pause | **Space** or ▶ |
-| Cut the selected crop at the playhead | **S** or ✂ |
+| Cut where you click (no need to play first) | Turn on the **✂ Cut** tool (or press **C**), then click the waveform: each click cuts there, the red line shows where. **C** or **Esc** turns it off. On the package page, ✂ in a row turns it on for that segment |
+| Cut the selected crop at the playhead (while listening) | **S** |
+| Scroll the zoomed timeline | The scrollbar under the waveform, a sideways trackpad swipe, or Shift + mouse wheel (while playing, the view stops following the playhead until it gets there) |
 | Move a boundary | Drag the line (snaps to word gaps; hold Alt to place it freely) |
 | Merge two crops | Double-click the line between them |
 | Undo / redo | **Ctrl+Z** / **Ctrl+Y** |
@@ -216,15 +197,3 @@ Choose what goes out (*accepted clips only*, *everything except rejected*, or *a
 
 On the task page: **Ctrl+Enter** plays or pauses the crop, and **Ctrl+↓** / **Ctrl+↑** go to the next or previous crop.
 
-### Dataset review panel
-
-| Key | Action |
-|---|---|
-| Space | Play / pause |
-| A, or Ctrl+Enter while typing | Accept and go to the next clip |
-| U | Use the ASR text |
-| R | Reject (with the selected reason) |
-| T | Trim the silence at both ends |
-| S | Cut the clip in two at the playhead |
-| J / K (or ↓ / ↑) | Next / previous clip |
-| E / Esc | Edit the text / leave the text box |

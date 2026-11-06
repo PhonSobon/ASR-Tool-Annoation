@@ -1,10 +1,15 @@
 "use client";
-// Upload & Crop: upload several audio files, cut them (one or all), fix the cuts on the waveform, push the ticked
-// ones to a new task.
+// Load Data: three ways to fill a task -
+//   Upload & cut audio  upload long recordings, cut them (one or all), fix the cuts on the waveform, push the ticked
+//                       ones to a new task (the annotators transcribe them, with the ASR's help)
+//   Hugging Face        a dataset that already has its text (HubLoadPanel)  } one package per clip, text filled in,
+//   Local folder        audio files + their labels (FolderUploadPanel)      } no speech recognition needed
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CutEditorPanel } from "@/components/CutEditorPanel";
+import { FolderUploadPanel } from "@/components/FolderUploadPanel";
+import { HubLoadPanel } from "@/components/HubLoadPanel";
 import { Icon } from "@/components/Icon";
 import { useNotify } from "@/components/notify";
 import { useCrumbs, useSession } from "@/components/session";
@@ -23,7 +28,8 @@ const isPicked = (it: Item) => ready(it) && (it.pick ?? isCut(it));   // what th
 let keySeq = 0;
 
 export default function UploadPage() {
-  useCrumbs([["Audio Annotation"], ["Upload & Crop"]]);
+  useCrumbs([["Data"], ["Load Data"]]);
+  const [source, setSource] = useState<"audio" | "hub" | "folder">("audio");
   const { can } = useSession();
   const { notify, askConfirm } = useNotify();
   const router = useRouter();
@@ -117,7 +123,7 @@ export default function UploadPage() {
 
   const removeItem = async (it: Item) => {
     if (it.error) return update(l => l.filter(x => x.key !== it.key));       // failed upload: just the row
-    if (!await askConfirm(`Remove “${it.name}” from Upload & Crop? Its audio and cuts will be deleted.`, { title: "Remove audio", ok: "Remove", danger: true })) return;
+    if (!await askConfirm(`Remove “${it.name}” from Load Data? Its audio and cuts will be deleted.`, { title: "Remove audio", ok: "Remove", danger: true })) return;
     try { await del(`/api/audios/${it.id}`); } catch (e: any) { return notify("Delete failed: " + e.message, "error"); }
     notify(`“${it.name}” removed.`, "success");
     thumbs.delete(it.id!);
@@ -204,9 +210,24 @@ export default function UploadPage() {
   return (
     <section>
       <div className="panel headcard">
-        <h2>Upload &amp; Crop Audio</h2>
-        <p>Upload one or more audio files, cut each one into crops and fix the cuts on the waveform, then tick the audio that are ready and push them to a task. The others stay here.</p>
+        <h2>Load Data</h2>
+        <p>Fill a task with speech to annotate. <b>Upload &amp; cut audio</b>: long recordings without text — cut them on the
+          waveform and push them to a task. <b>Hugging Face</b> or <b>Local folder</b>: clips that already have their text —
+          each clip becomes a package with the text filled in, so annotators only check it (no speech recognition needed).</p>
       </div>
+
+      <div className="load-sources" role="tablist" aria-label="Where the data comes from">
+        {([["audio", "upload", "Upload & cut audio", "Recordings without text"],
+           ["hub", "download", "Hugging Face", "A dataset with its text"],
+           ["folder", "inbox", "Local folder", "Audio files + labels"]] as const).map(([k, icon, label, sub]) => (
+          <button key={k} type="button" role="tab" aria-selected={source === k} className={`load-src${source === k ? " on" : ""}`}
+                  onClick={() => setSource(k)}><Icon name={icon} /><span><b>{label}</b><small>{sub}</small></span></button>))}
+      </div>
+
+      {source === "hub" && <HubLoadPanel />}
+      {source === "folder" && <FolderUploadPanel />}
+
+      <div hidden={source !== "audio"}>
 
       <div className="panel">
         <div className="step"><span className="num">1</span> Upload audio</div>
@@ -279,6 +300,7 @@ export default function UploadPage() {
           </div>
         </div>
       )}
+      </div>
     </section>
   );
 }

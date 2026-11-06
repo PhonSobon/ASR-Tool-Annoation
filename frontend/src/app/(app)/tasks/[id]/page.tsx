@@ -1,6 +1,7 @@
 "use client";
 // One task: "Task Batch List" (packages = crops; tabs Todo / Inspection / Acceptance / Done, filters, duration
 // stats, Recognize all, members, export, push to the Hub) and the package view of one package (PackageView).
+// A task made by Load Data from a Hugging Face dataset shows its loading job and fills in while the clips arrive.
 import { use, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { HubPushDialog } from "@/components/HubPushDialog";
@@ -19,6 +20,8 @@ import {
 import { TaskStore, type Pkg } from "@/lib/task-store";
 import type { Members, Task, TaskSummary } from "@/lib/types";
 
+/** member roles a task can be opened to for claiming */
+const ROLE_GROUP: Record<string, string> = { annotator: "Annotators", inspector: "Quality inspectors", acceptor: "Acceptors" };
 const INCLUDE_STAGES: Record<string, string[]> = { accepted: ["accepted"], passed: ["accepting", "accepted"], done: ["inspecting", "accepting", "accepted"] };
 
 export default function TaskPage({ params }: { params: Promise<{ id: string }> }) {
@@ -29,16 +32,17 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
   const [task, setTask] = useState<Task | null>(null);
   useCrumbs(task ? [["Workbench"], ["My Tasks", "/tasks"], [task.name]] : [["Workbench"], ["My Tasks", "/tasks"], ["…"]]);
 
+  const reload = useCallback(() => getJson<Task>(`/api/tasks/${id}`).then(setTask), [id]);
   useEffect(() => {
-    getJson<Task>(`/api/tasks/${id}`).then(setTask).catch(e => { notify("Cannot open this page: " + e.message, "error"); router.replace("/tasks"); });
-  }, [id, notify, router]);
+    reload().catch(e => { notify("Cannot open this page: " + e.message, "error"); router.replace("/tasks"); });
+  }, [reload, notify, router]);
 
   const store = useMemo(() => task && new TaskStore(task, me.username, setSave, m => notify(m, "error")), [task, me.username, setSave, notify]);
   if (!store) return null;
-  return <TaskView key={store.task.id} store={store} can={can} nameOf={nameOf} />;
+  return <TaskView key={store.task.id} store={store} can={can} nameOf={nameOf} reload={reload} />;
 }
 
-function TaskView({ store, can, nameOf }: { store: TaskStore; can: (p: string) => boolean; nameOf: (u: string) => string }) {
+function TaskView({ store, can, nameOf, reload }: { store: TaskStore; can: (p: string) => boolean; nameOf: (u: string) => string; reload: () => Promise<void> }) {
   const { me } = useSession();
   const { notify } = useNotify();
   const router = useRouter();
@@ -54,6 +58,7 @@ function TaskView({ store, can, nameOf }: { store: TaskStore; can: (p: string) =
   const recStop = useRef({ stop: false });
   const [members, setMembers] = useState(false), [pushing, setPushing] = useState(false);
   const [include, setInclude] = useState("accepted");
+  const [dlAudio, setDlAudio] = useState("");                            // the audio "Download audio" saves
 
   useEffect(() => {                                       // save before leaving the page / logging out
     const flush = () => { store.flush(); };
@@ -64,9 +69,10 @@ function TaskView({ store, can, nameOf }: { store: TaskStore; can: (p: string) =
   }, [store]);
 
   const pushJob = useJob(`/api/tasks/${task.id}/job`, job => {
-    if (job.error) notify("Push failed: " + job.error, "error");
-    else notify(job.message, "success", 0);
-  });
+    if (job.kind === "load") { store.flush(); reload(); }               // the clips loaded from the Hub are all there
+    if (job.error) notify((job.kind === "load" ? "Loading failed: " : "Push failed: ") + job.error, "error");
+    else notify(job.message, "success", job.kind === "load" ? 5000 : 0);
+  }, (job, tick) => { if (job.kind === "load" && tick % 4 === 0 && !store.unsaved.size) reload(); });   // packages appear while it loads
 
   // ---------- list ----------
   /** the filters except the tab (the tab counts use them too) */
@@ -156,8 +162,14 @@ function TaskView({ store, can, nameOf }: { store: TaskStore; can: (p: string) =
     notify(`Exporting “${task.name}” — the ZIP will download in a moment.`, "info");
   };
 
-  const saveMembers = async (m: Record<string, string[]>) => {
-    try { task.members = (await api(`/api/tasks/${task.id}/members`, m, "PUT")).members; }
+  /** one package's audio (its start–end of the source audio) as a WAV, instead of the whole task ZIP */
+  const downloadPkg = (c: Pkg) => {
+    const q = new URLSearchParams({ start: String(c.seg.start), end: String(c.seg.end), name: c.pkg.replace(/\.[^.]+$/, "") });
+    download(`/api/audios/${c.audio.id}/download?${q}`);
+  };
+
+  const saveMembers = async (m: Record<string, string[]>, open: string[]) => {
+    try { ({ members: task.members, open_roles: task.open_roles } = await api(`/api/tasks/${task.id}/members`, { ...m, open_roles: open }, "PUT")); }
     catch (e: any) { return notify("Members not saved: " + e.message, "error"); }
     setMembers(false); store.emit();
     notify("Members saved.", "success");
@@ -185,6 +197,8 @@ function TaskView({ store, can, nameOf }: { store: TaskStore; can: (p: string) =
   const membersText = [["Annotators", m.annotator], ["Inspectors", m.inspector], ["Acceptors", m.acceptor]]
     .filter(([, l]) => (l as string[]).length).map(([label, l]) => `${label}: ${(l as string[]).map(nameOf).join(", ")}`).join(" · ")
     || (acc.manage ? "Nobody is assigned yet — press Members." : "");
+  const openText = task.open_roles?.length && acc.manage
+    ? `Open for claiming: ${task.open_roles.map(r => ROLE_GROUP[r] || r).join(", ")}` : "";
 
   if (cur >= 0) {
     const l = workList();
@@ -198,7 +212,13 @@ function TaskView({ store, can, nameOf }: { store: TaskStore; can: (p: string) =
         <div className="task-head">
           <div>
             <h2>{task.name}{acc.edit ? "" : <span className="pill" style={{ marginLeft: 10, verticalAlign: 3 }}>Read only</span>}</h2>
-            <p>{membersText || "Packages of this task"}</p>
+            <p>{membersText || "Packages of this task"}{openText && <span className="pill" style={{ marginLeft: 8 }}>{openText}</span>}</p>
+            {task.source && <p className="muted">
+              {task.source.kind === "hub" ? <>Loaded from <a href={`https://huggingface.co/datasets/${task.source.repo}`} target="_blank" rel="noopener">{task.source.repo}</a>
+                {` · ${task.source.config} / ${task.source.split}`}{task.source.max_rows ? ` · rows ${task.source.start_row}–${(task.source.start_row || 0) + task.source.max_rows - 1}` : ""}</>
+                : "Loaded from a local folder"}
+              {" · every clip is one package with its text already filled in — check it against the audio, no recognition needed"}
+              {task.source.failed ? ` · ${task.source.failed} files could not be read` : ""}</p>}
           </div>
           <button className="sec back" onClick={() => router.push("/tasks")}><Icon name="arrow-left" /> Back</button>
         </div>
@@ -224,17 +244,26 @@ function TaskView({ store, can, nameOf }: { store: TaskStore; can: (p: string) =
           {(acc.edit || acc.inspect || acc.accept) && <button className="sec" title={`Open the next package in ${TAB_LABEL[claimTab]}`}
             disabled={!crops.some(c => inTab(c.seg, claimTab))} onClick={() => { const i = crops.findIndex(c => inTab(c.seg, claimTab)); if (i >= 0) { setTab(claimTab); setCur(i); } }}>
             <Icon name="file" /> Claim Package</button>}
-          {acc.edit && can("asr.run") && <>
+          {acc.edit && can("asr.run") && !task.source && <>   {/* loaded data has its text: nothing to recognize */}
             <button className="sec" title="Recognize every package that has no text yet" disabled={recRunning} onClick={recognizeAll}><Icon name="recognize" /> Recognize all</button>
             <button className="stop" disabled={!recRunning} onClick={() => { recStop.current.stop = true; setTaskStatus("Stopping after the current segment…"); }}><Icon name="stop" /> Stop</button>
           </>}
           {acc.manage && <button className="sec" title="Choose who annotates, inspects and accepts this task" onClick={() => setMembers(true)}><Icon name="users" /> Members</button>}
           {can("data.export") && <button className="sec" title="Download every package of this task as one ZIP" onClick={exportZip}><Icon name="download" /> Export task ZIP</button>}
+          {can("data.export") && task.audios.length > 0 && <span className="nowrap">
+            <select aria-label="Audio to download" value={dlAudio || task.audios[0].id} onChange={e => setDlAudio(e.target.value)}
+                    style={{ maxWidth: 220 }}>
+              {task.audios.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>{" "}
+            <button className="sec" title="Download the whole chosen audio of this task as one WAV file (no ZIP)"
+              onClick={() => { const a = task.audios.find(x => x.id === (dlAudio || task.audios[0].id))!;
+                               download(`/api/audios/${a.id}/download?name=${encodeURIComponent(a.name.replace(/\.[^.]+$/, ""))}`); }}>
+              <Icon name="download" /> Download audio</button></span>}
           {can("hub.push") && (crops.some(c => cropState(c.seg) === "done") || pushJob.running) &&
             <button title="Upload the reviewed packages to a Hugging Face dataset repo" disabled={pushJob.running} onClick={openPush}><Icon name="upload" /> Push to Hugging Face</button>}
           <span className="muted">{taskStatus}</span>
         </div>
-        {pushJob.visible && pushJob.job && <JobBox job={pushJob.job} stopUrl={`/api/tasks/${task.id}/stop`} />}
+        {pushJob.visible && pushJob.job && <JobBox job={pushJob.job} stopUrl={`/api/tasks/${task.id}/stop`} canStop={acc.manage} />}
 
         <div className="crop-tabs" role="tablist" aria-label="Packages">
           {TABS.map(t => <button key={t} type="button" role="tab" className={t === tab ? "on" : ""} aria-selected={t === tab}
@@ -273,7 +302,9 @@ function TaskView({ store, can, nameOf }: { store: TaskStore; can: (p: string) =
                     <td>{acceptorOf(s) ? <span className="who">{nameOf(acceptorOf(s))}</span> : "-"}</td>
                     <td>{h || "-"}</td>
                     <td className="nowrap">{s.updated || "-"}</td>
-                    <td><a className="open" onClick={() => setCur(i)}>{openLabel(c)}</a></td>
+                    <td className="nowrap"><a className="open" onClick={() => setCur(i)}>{openLabel(c)}</a>
+                      {can("data.export") && <> · <a className="open" title="Download the audio of this package (WAV)"
+                        onClick={() => downloadPkg(c)}><Icon name="download" /> Audio</a></>}</td>
                   </tr>
                 );
               })}
@@ -292,6 +323,8 @@ function TaskView({ store, can, nameOf }: { store: TaskStore; can: (p: string) =
         groups={[{ key: "annotator", label: "Annotators", roles: ["annotator", "manager", "admin"] },
                  { key: "inspector", label: "Quality inspectors", roles: ["inspector", "manager", "admin"] },
                  { key: "acceptor", label: "Acceptors", roles: ["acceptor", "manager", "admin"] }]}
+        claim={{ text: "Users of the roles ticked see this task under “Available to claim” in My Tasks and can join it themselves. Untick all to assign people only.",
+                 options: Object.entries(ROLE_GROUP).map(([key, label]) => ({ key, label })), current: task.open_roles || [] }}
         onSave={saveMembers} onClose={() => setMembers(false)} />}
 
       {pushing && (

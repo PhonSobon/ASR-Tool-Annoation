@@ -4,6 +4,7 @@
 // itself (GET /api/activity/work), not from the activity log.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { DateRangePicker } from "@/components/DateRangePicker";
 import { Icon } from "@/components/Icon";
 import type { IconName } from "@/components/icon-sprite";
 import { useNotify } from "@/components/notify";
@@ -105,8 +106,7 @@ export default function WorkPage() {
           <button key={p.label} type="button" className={`chip${period === p ? " on" : ""}`}
                   onClick={() => setRange({ since: p.since(), until: "" })}>{p.label}</button>
         ))}
-        <label>From <input type="date" value={range.since} onChange={e => setRange(r => ({ ...r, since: e.target.value }))} /></label>
-        <label>To <input type="date" value={range.until} onChange={e => setRange(r => ({ ...r, until: e.target.value }))} /></label>
+        <DateRangePicker label="Work dates" since={range.since} until={range.until} onChange={(since, until) => setRange({ since, until })} />
       </div>
 
       <div className="act-cards">

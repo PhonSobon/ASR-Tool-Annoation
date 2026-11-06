@@ -1,15 +1,17 @@
-"""Tasks: push audio from Upload & Crop into a batch, list (My Tasks), open, delete, assign people, review the
-packages (inspection, acceptance), push the annotations to the Hub."""
+"""Tasks: push audio from Upload & Crop into a batch, or load a Hugging Face dataset / a local folder with its text
+(Load Data), list (My Tasks), open, delete, assign people, review the packages (inspection, acceptance), push the
+annotations to the Hub."""
+import json
 import re
 import shutil
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, abort, current_app, jsonify, request
 
 from ...auth import guard
 from ...auth.guard import require
 from ...core import audio, hub, jobs
 from ...core.storage import now
-from .. import access, audios, tasks
+from .. import access, audios, importer, tasks
 
 bp = Blueprint("tasks", __name__, url_prefix="/api/tasks")
 
@@ -32,6 +34,134 @@ def push():
         return jsonify(error=str(e)), 400
 
 
+# ---------- Load Data: speech that already has its text ----------
+def _int(data, key, default=None, low=0):
+    v = data.get(key)
+    if v in (None, ""):
+        return default
+    v = int(v)
+    if v < low:
+        raise ValueError
+    return v
+
+
+@bp.post("/load/hub")
+@require("audio.upload")
+def load_hub():
+    """{repo, config, split, audio_column, text_column, rows?, start_row?, max_rows?, batches?, name?, token?,
+    members?} -> {tasks: [...], warning?}. One task per batch of rows (only those rows are read from the Hub), loaded
+    in the background (GET /api/tasks/<id>/job). Every clip is one package with its text filled in."""
+    data = request.get_json(force=True, silent=True) or {}
+    token = (data.get("token") or "").strip() or None
+    try:
+        repo = hub.check_repo_id(data.get("repo"))
+    except ValueError as e:
+        return jsonify(error=str(e)), 400
+    config, split = data.get("config") or "default", data.get("split") or "train"
+    audio_col, text_col = data.get("audio_column"), data.get("text_column")
+    if not audio_col or not text_col or audio_col == text_col:
+        return jsonify(error="Choose the audio column and the text column"), 400
+    try:
+        start, max_rows = _int(data, "start_row", 0), _int(data, "max_rows", None, 1)
+        n_batches, total = min(_int(data, "batches", 1, 1), 100), _int(data, "rows")
+    except (TypeError, ValueError):
+        return jsonify(error="Start row, rows per batch and batches must be whole numbers"), 400
+    if n_batches > 1 and not max_rows:
+        return jsonify(error="Set the rows per batch to load more than one batch"), 400
+    ranges = [(start + k * (max_rows or 0), max_rows) for k in range(n_batches)]
+    ranges = [(s, min(n, total - s) if n and total else n) for s, n in ranges if total is None or s < total]
+    if not ranges:
+        return jsonify(error=f"This split has only {total} rows"), 400
+    for s, n in ranges:
+        if importer.overlap(repo, config, split, s, n) is not None:
+            return jsonify(error=f"Rows from {s} are already loaded in another task - start at row "
+                                 f"{importer.next_row(repo, config, split)}"), 400
+    base = (data.get("name") or "").strip() or f"{repo.split('/')[-1]} ({split})"
+    sha = hub.dataset_sha(repo, token)
+    earlier = {src.get("sha") for src in importer.hub_sources(repo) if importer.same_split(src, config, split) and src.get("sha")}
+    warning = (f"{repo} changed on the Hub since the earlier batches were loaded (now at commit {sha[:8]}). If rows "
+               "were added or removed in the middle, row numbers may not line up.") if sha and earlier and sha not in earlier else None
+    out = []
+    for s, n in ranges:
+        name = f"{base} · rows {s}–{s + n - 1}" if n else (f"{base} · rows {s}–end" if s else base)
+        task_id = importer.create(name, {"kind": "hub", "repo": repo, "config": config, "split": split, "start_row": s,
+                                         "max_rows": n, "sha": sha}, guard.username(), data.get("members"))
+        jobs.start(_job_key(task_id), "load", _loader(task_id, repo, config, split, audio_col, text_col, token, s, n, total))
+        out.append(tasks.summary(task_id))
+    return jsonify(tasks=out, warning=warning), 201
+
+
+def _loader(task_id, repo, config, split, audio_col, text_col, token, start, max_rows, total):
+    def run(job):
+        job.progress(0, None, "Waiting to read the Hub…")
+        files, partial = hub.parquet_files(repo, config, split, token)
+        if not files:
+            raise ValueError(f"No parquet files for {repo} / {config} / {split}")
+        expect = min(max_rows, total - start) if max_rows and total else (max_rows or total)
+        on_file = lambda k, n: job.progress(job.done, expect, f"Reading file {k + 1} / {n}…")
+        rows = hub.iter_rows(repo, files, [audio_col, text_col], token, start, max_rows, on_file)
+        result = importer.load_rows(task_id, rows, audio_col, text_col, start, job, expect)
+        if not result["count"] and not result["failed"] and not job.stopped:
+            raise ValueError(f"No rows from row {start} on" + (
+                " - the Hub has parquet for only the first part of this split (about 5 GB), so later rows cannot be "
+                "read in batches" if partial else ""))
+        return result
+    return run
+
+
+@bp.post("/load/local")
+@require("audio.upload")
+def load_local():
+    """{name, members?} -> a new, empty task for a local folder. Then POST its files in parts (/<id>/files) and
+    finish it (/<id>/finish)."""
+    data = request.get_json(force=True, silent=True) or {}
+    if not (data.get("name") or "").strip():
+        return jsonify(error="Give the task a name"), 400
+    task_id = importer.create(data["name"], {"kind": "local"}, guard.username(), data.get("members"))
+    return jsonify(tasks.summary(task_id)), 201
+
+
+def _local_task(task_id):
+    access.task(task_id, "manage")
+    task = tasks.summary(task_id)
+    if (task.get("source") or {}).get("kind") != "local":
+        abort(400, "Files can only be added to a task loaded from a local folder")
+    return task
+
+
+@bp.post("/<task_id>/files")
+@require("audio.upload")
+def load_files(task_id):
+    """multipart: audio (files), texts (JSON list: the label of each file, same order), names (JSON list: the path
+    of each file in the folder) -> {added, skipped, failed: [{file, error}], count}."""
+    _local_task(task_id)
+    files = request.files.getlist("audio")
+    try:
+        texts = json.loads(request.form.get("texts") or "[]")
+        names = json.loads(request.form.get("names") or "[]") or [f.filename for f in files]
+    except ValueError:
+        return jsonify(error="texts and names must be JSON lists"), 400
+    if not files:
+        return jsonify(error="No audio file in the request"), 400
+    if not isinstance(texts, list) or not isinstance(names, list) or len(texts) != len(files) or len(names) != len(files):
+        return jsonify(error="Send one text (and one name) per audio file"), 400
+    batch = [(str(n or f.filename or "").replace(chr(92), "/").strip("/")[:300], f.read(), str(t or ""))
+             for f, n, t in zip(files, names, texts)]
+    result = importer.add_files(task_id, batch)
+    return jsonify({**result, "count": len(importer.clip_names(task_id))})
+
+
+@bp.post("/<task_id>/finish")
+@require("audio.upload")
+def load_finish(task_id):
+    """The folder is loaded -> the task summary. A task without any clip is refused."""
+    _local_task(task_id)
+    if not importer.clip_names(task_id):
+        return jsonify(error="No audio file could be loaded"), 400
+    importer.set_source(task_id, state="ready")
+    return jsonify(tasks.summary(task_id))
+
+
 @bp.get("/<task_id>")
 def get_task(task_id):
     t = access.task(task_id)
@@ -47,10 +177,23 @@ def delete_task(task_id):
 
 @bp.put("/<task_id>/members")
 def set_members(task_id):
-    """{annotator: [user, ...], inspector: [...], acceptor: [...]} -> the members."""
+    """{annotator: [user, ...], inspector: [...], acceptor: [...], open_roles?: ["annotator", ...]} -> the members and
+    the roles that may claim the task themselves (open_roles left out: unchanged)."""
     access.task(task_id, "manage")
+    data = request.get_json(force=True, silent=True) or {}
     try:
-        return jsonify(members=tasks.set_members(task_id, request.get_json(force=True, silent=True) or {}))
+        m = tasks.set_members(task_id, data)
+    except ValueError as e:
+        return jsonify(error=str(e)), 400
+    open_roles = tasks.set_open_roles(task_id, data["open_roles"]) if "open_roles" in data         else tasks.clean_open_roles(tasks.read(task_id).get("open_roles"))
+    return jsonify(members=m, open_roles=open_roles)
+
+
+@bp.post("/<task_id>/claim")
+def claim(task_id):
+    """The logged-in user joins a task open to their role (My Tasks -> Available to claim) -> the members."""
+    try:
+        return jsonify(members=tasks.claim(task_id, guard.current_user()))
     except ValueError as e:
         return jsonify(error=str(e)), 400
 

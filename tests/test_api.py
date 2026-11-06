@@ -1,6 +1,7 @@
 import base64
 import io
 import json
+import wave
 import zipfile
 
 from backend.asr import recognizer
@@ -117,6 +118,17 @@ def test_export_audio_zip(client, clip):
     assert sorted(z.namelist()) == ["news/metadata.json", "news/wavs/news_0001.wav"]
     meta = json.loads(z.read("news/metadata.json"))
     assert meta[0]["duration"] == 5.0 and meta[0]["role"] == "Narrator"
+
+
+def test_download_package_audio(client, clip):
+    r = client.get(f"/api/audios/{clip['id']}/download?start=1&end=3.5&name=news_0002")
+    assert r.status_code == 200 and r.mimetype == "audio/wav"
+    assert 'news_0002.wav' in r.headers["Content-Disposition"]
+    with wave.open(io.BytesIO(r.data)) as w:
+        assert abs(w.getnframes() / w.getframerate() - 2.5) < 0.01
+    whole = client.get(f"/api/audios/{clip['id']}/download")
+    with wave.open(io.BytesIO(whole.data)) as w:
+        assert w.getnframes() / w.getframerate() > 3.5
 
 
 def test_export_task_zip(client):

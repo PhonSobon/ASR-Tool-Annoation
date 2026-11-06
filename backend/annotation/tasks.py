@@ -1,9 +1,12 @@
 """Tasks: a named batch of audio pushed from Upload & Crop. Table "tasks" (backend/core/db.py):
 
-    id, name, created, created_by, last_push, members {"annotator": [user, ...], "inspector": [...], "acceptor": [...]}
+    id, name, created, created_by, last_push, members {"annotator": [user, ...], "inspector": [...], "acceptor": [...]},
+    open_roles ["annotator", ...]: the member roles whose users may claim the task themselves (join it from My Tasks),
+    source: where Load Data took the clips from (importer.py; null for audio pushed from Upload & Crop)
 
 Which audio belong to a task is stored on the audio (audios.task_id), so there is one source of truth.
-Annotators, inspectors and acceptors see only the tasks they are members of (allowed()).
+Annotators, inspectors and acceptors see only the tasks they are members of (allowed()). A manager assigns them, or
+opens the task for claiming: then a user whose role is open sees it under "Available to claim" and joins it (claim()).
 """
 import copy
 import uuid
@@ -17,7 +20,7 @@ from ..core.db import Task
 from ..core.storage import NotFound, now
 from . import audios, review
 
-COLUMNS = ("id", "name", "created", "created_by", "members", "last_push")
+COLUMNS = ("id", "name", "created", "created_by", "members", "last_push", "open_roles", "source")
 
 
 class TaskNotFound(NotFound):
@@ -99,6 +102,39 @@ def set_members(task_id, value):
     return m
 
 
+# ---------- claiming ----------
+def clean_open_roles(value):
+    return [r for r in MEMBER_ROLES if r in (value if isinstance(value, list) else [])]
+
+
+def set_open_roles(task_id, value):
+    roles_ = clean_open_roles(value)
+    with db.transaction() as s:
+        _row(s, task_id, lock=True).open_roles = roles_
+    return roles_
+
+
+def can_claim(task, user):
+    """The task is open to the user's role and they are not a member of it yet (managers see every task anyway)."""
+    role = (user or {}).get("role")
+    return (role in clean_open_roles(task.get("open_roles")) and roles.has(user, _STEP_PERM[role])
+            and user["username"] not in members(task)[role])
+
+
+def claim(task_id, user):
+    """Add the user to the task in their role. Raises ValueError when the task is not open to them."""
+    with db.transaction() as s:
+        row = _row(s, task_id, lock=True)
+        task = _dict(row)
+        if not can_claim(task, user):
+            mine = user["username"] in members(task).get(user.get("role"), [])
+            raise ValueError("You are already in this task" if mine else "This task is not open for your role to claim")
+        m = members(task)
+        m[user["role"]].append(user["username"])
+        row.members = m
+    return m
+
+
 def create_task(name, audio_ids, created_by="", members_=None):
     """Push audio from Upload & Crop into a new task. Raises ValueError if the list is empty or not all drafts."""
     if not audio_ids:
@@ -123,7 +159,8 @@ def summary(task_id, items=None, task=None):
     for a in items:
         for k, v in (a.get("stages") or {}).items():
             stages[k] = stages.get(k, 0) + v
-    return {**task, "members": members(task), "audio_count": len(items),
+    return {**task, "members": members(task), "open_roles": clean_open_roles(task.get("open_roles")),
+            "audio_count": len(items),
             "duration": sum(a["duration"] for a in items),
             "count": sum(a["count"] for a in items),
             "done": sum(a["done"] for a in items),
@@ -145,11 +182,13 @@ def set_last_push(task_id, push):
 
 
 def list_tasks(user=None):
-    """The tasks the user may see (all with user=None), newest first."""
+    """The tasks the user may see (all with user=None), newest first, and the ones open for them to claim
+    (can_claim: True; they see only the card until they claim it)."""
     with db.transaction() as s:
         rows = [_dict(r) for r in s.scalars(select(Task).order_by(Task.created.desc()))]
-    return [{**summary(t["id"], task=t), "access": access(t, user) if user else None}
-            for t in rows if user is None or allowed(t, user, "view")]
+    return [{**summary(t["id"], task=t), "access": access(t, user) if user else None,
+             "can_claim": bool(user) and can_claim(t, user)}
+            for t in rows if user is None or allowed(t, user, "view") or can_claim(t, user)]
 
 
 def delete_task(task_id):

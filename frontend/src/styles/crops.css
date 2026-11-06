@@ -62,3 +62,6 @@ button.back { flex:none; }
 .badge.error { background:var(--err-soft); color:#b91c1c; }
 .badge.review { background:#dbeafe; color:var(--primary); }
 .req::after { content:"*"; color:var(--err); margin-left:2px; }
+
+/* long package names (Khmer + Latin with no spaces) wrap instead of widening the table */
+.pkg-table a.open { overflow-wrap:anywhere; }

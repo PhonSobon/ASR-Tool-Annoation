@@ -333,3 +333,81 @@ def test_batches_push_to_one_repo(client, monkeypatch):
     assert "| rows 0–1 | train | 2 |" in repo["card"] and "| rows 2–3 | train | 1 |" in repo["card"]
     assert "| **Total** |  | **3** |" in repo["card"]
     assert client.get(f"/api/datasets/{made[1]['id']}").json["sibling_push"]["repo"] == "me/khmer_clean"
+
+
+# ---------- upload from a local folder ----------
+def send_files(client, ds_id, files):
+    """files: [(name, bytes, text)] -> the response of POST /api/datasets/<id>/files."""
+    return client.post(f"/api/datasets/{ds_id}/files", content_type="multipart/form-data", data={
+        "audio": [(io.BytesIO(data), name.split("/")[-1]) for name, data, _ in files],
+        "names": json.dumps([name for name, _, _ in files]), "texts": json.dumps([t for _, _, t in files])})
+
+
+@pytest.fixture
+def local_ds(client):
+    r = client.post("/api/datasets/local", json={"name": "Recorded news"})
+    assert r.status_code == 201, r.json
+    assert r.json["state"] == "uploading" and r.json["source"] == "local" and r.json["count"] == 0
+    return r.json["id"]
+
+
+def test_local_upload_in_parts(client, local_ds):
+    r = send_files(client, local_ds, [("news/a.wav", make_wav(1.0, sr=22050), TEXTS[0]),
+                                      ("news/b.wav", make_wav(2.0), TEXTS[1])])
+    assert r.status_code == 200, r.json
+    assert r.json["added"] == 2 and r.json["count"] == 2 and not r.json["failed"]
+    r = send_files(client, local_ds, [("news/b.wav", make_wav(2.0), TEXTS[1]),          # sent again: skipped
+                                      ("news/c.wav", make_wav(1.5), TEXTS[2]),
+                                      ("news/broken.wav", b"not audio", "x"),
+                                      ("news/notes.pdf", b"%PDF", "x")])
+    assert r.json["added"] == 1 and r.json["skipped"] == ["news/b.wav"] and r.json["count"] == 3
+    assert [f["file"] for f in r.json["failed"]] == ["news/broken.wav", "news/notes.pdf"]
+    r = client.post(f"/api/datasets/{local_ds}/finish", json={})
+    assert r.status_code == 200 and r.json["state"] == "ready" and r.json["failed"] == 2
+    d = client.get(f"/api/datasets/{local_ds}").json
+    assert [it["idx"] for it in d["items"]] == [0, 1, 2]
+    assert [it["text"] for it in d["items"]] == TEXTS[:3]
+    assert [it["extra"]["file_name"] for it in d["items"]] == ["news/a.wav", "news/b.wav", "news/c.wav"]
+    assert d["items"][0]["duration"] == 1.0 and d["sibling_push"] is None
+    assert Path(client.application.config["DATASETS_DIR"], local_ds, "clips/000002.wav").exists()
+
+
+def test_local_upload_checks(client, local_ds, monkeypatch):
+    monkeypatch.setattr(recognizer, "recognize", lambda x, model: {"text": TEXTS[0]})
+    send_files(client, local_ds, [("a.wav", make_wav(1.0), TEXTS[0])])
+    assert client.post(f"/api/datasets/{local_ds}/finish", json={"check": True}).status_code == 200
+    assert wait_job(client, local_ds)["result"] == {"checked": 1}
+    assert client.get(f"/api/datasets/{local_ds}").json["items"][0]["cer"] == 0
+
+
+def test_local_upload_errors(client, local_ds, ds, add_user):
+    assert client.post("/api/datasets/local", json={"name": " "}).status_code == 400
+    assert client.post(f"/api/datasets/{local_ds}/finish", json={}).status_code == 400   # no clip yet
+    r = client.post(f"/api/datasets/{local_ds}/files", content_type="multipart/form-data",
+                    data={"audio": [(io.BytesIO(make_wav(1.0)), "a.wav")], "texts": "[]"})
+    assert r.status_code == 400 and "one text" in r.json["error"]
+    assert send_files(client, ds, [("a.wav", make_wav(1.0), "x")]).status_code == 400    # a Hub dataset
+    worker = add_user("ana", "annotator")
+    assert worker.post("/api/datasets/local", json={"name": "x"}).status_code == 403
+    assert send_files(worker, local_ds, [("a.wav", make_wav(1.0), "x")]).status_code == 403
+    manager = add_user("mia", "manager")
+    assert manager.post("/api/datasets/local", json={"name": "x"}).status_code == 201
+
+
+def test_local_push_has_its_own_files(client, local_ds, monkeypatch):
+    send_files(client, local_ds, [("rec/a.wav", make_wav(1.0), TEXTS[0])])
+    client.post(f"/api/datasets/{local_ds}/finish", json={})
+    client.patch(f"/api/datasets/{local_ds}/items/0", json={"status": "accepted"})
+    pushed = {}
+
+    def fake_push(folder, repo_id, split, card_fn, token, private, create_pr, message, prefix=None):
+        table = pq.read_table(next(Path(folder, "data").glob("*.parquet")))
+        pushed.update(prefix=prefix, table=table, card=card_fn("", {split}))
+        return "https://huggingface.co/datasets/me/news/commit/1"
+
+    monkeypatch.setattr(hub, "push", fake_push)
+    client.post(f"/api/datasets/{local_ds}/push", json={"repo_id": "me/news"})
+    assert wait_job(client, local_ds)["error"] is None
+    assert pushed["prefix"] == f"train-upload-{local_ds}"
+    assert pushed["table"].column("file_name").to_pylist() == ["rec/a.wav"]
+    assert "uploaded from a local folder" in pushed["card"] and "| Recorded news | train | 1 |" in pushed["card"]

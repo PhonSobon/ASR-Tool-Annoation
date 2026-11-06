@@ -1,8 +1,10 @@
-"""Datasets imported from the Hugging Face Hub for cleaning. One row per dataset (batch) in the "datasets" table
-(backend/core/db.py), and its audio on disk in DATASETS_DIR:
+"""Datasets for cleaning, imported from the Hugging Face Hub or uploaded from a local folder of audio files and their
+labels (meta "source": "local"). One row per dataset (batch) in the "datasets" table (backend/core/db.py), and its
+audio on disk in DATASETS_DIR:
 
     meta      name, source (repo, config, split, columns, start_row / max_rows of a batch, source_sha = the commit of
-              the Hub dataset read), created, import state, last_push, members (the users assigned to review it)
+              the Hub dataset read; "source": "local" and an empty repo for an upload), created, import state
+              ("importing" | "uploading" | "ready"), last_push, members (the users assigned to review it)
     items     one item per clip (below)
     summary   counts for the cards (kept with items, so a list of thousands of batches is fast)
     <DATASETS_DIR>/<dataset_id>/clips/<n>.wav   16 kHz mono 16-bit
@@ -33,6 +35,7 @@ from ..core.text import normalize_text
 from . import quality
 
 STATUSES = ("todo", "accepted", "rejected")
+AUDIO_EXTS = (".wav", ".mp3", ".flac", ".ogg", ".opus", ".m4a", ".aac", ".wma", ".webm", ".mp4")
 SAVE_EVERY = 200   # clips imported between two saves (so a stopped import keeps what it has)
 CHECK_SAVE_EVERY = 20
 
@@ -167,8 +170,14 @@ def next_row(repo, config, split):
                 if _same_source(m, repo, config, split) and m.get("max_rows")] + [0])
 
 
+def is_local(meta):
+    return meta.get("source") == "local"
+
+
 def sibling_push(meta):
     """The last push of another batch of the same source (its batches usually all go to one repo)."""
+    if is_local(meta):
+        return None
     pushes = [m["last_push"] for m in _metas(meta.get("repo")) if m.get("last_push") and m.get("id") != meta.get("id")
               and _same_source(m, meta.get("repo"), meta.get("config"), meta.get("split"))]
     return max(pushes, key=lambda p: p["at"]) if pushes else None
@@ -195,6 +204,23 @@ def access(meta, user):
     return {a: allowed(meta, user, a) for a in ("view", "review", "bulk_accept", "manage")}
 
 
+def can_claim(meta, user):
+    """The dataset is open for claiming (meta["open"]) and the user may review clips but is not a member yet."""
+    return (bool(meta.get("open")) and roles.has(user, "dataset.review") and not roles.has(user, "dataset.manage")
+            and user["username"] not in (meta.get("members") or []))
+
+
+def claim(dataset_id, user):
+    """Add the user to the reviewers of an open dataset. Raises ValueError when it is not open to them."""
+    with _lock(dataset_id), db.transaction() as s:
+        row = _row(s, dataset_id, lock=True)
+        if not can_claim(row.meta, user):
+            mine = user["username"] in (row.meta.get("members") or [])
+            raise ValueError("You are already a reviewer of this dataset" if mine else "This dataset is not open for claiming")
+        row.meta = {**row.meta, "members": [*(row.meta.get("members") or []), user["username"]]}
+        return list(row.meta["members"])
+
+
 def source_shas(repo, config, split):
     """Commits of the Hub dataset that the batches already imported from this split were read at."""
     return {m["source_sha"] for m in _metas(repo) if _same_source(m, repo, config, split) and m.get("source_sha")}
@@ -218,8 +244,8 @@ def list_datasets(user=None):
         counts = counts or _counts([])
         s = {**meta, **counts, "updated": max(counts["updated"], meta["created"]), "batch": batch(meta),
              "job": jobs.get(dataset_id)}
-        if user is None or allowed(s, user, "view"):
-            out.append({**s, "access": access(s, user) if user else None})
+        if user is None or allowed(s, user, "view") or can_claim(s, user):
+            out.append({**s, "access": access(s, user) if user else None, "can_claim": bool(user) and can_claim(s, user)})
     return sorted(out, key=lambda d: (d["created"], -(d.get("start_row") or 0)), reverse=True)  # batches in row order
 
 
@@ -240,7 +266,7 @@ def create(meta):
     column_types ({column: "int" | "float" | "string"}), start_row, max_rows."""
     dataset_id = uuid.uuid4().hex[:12]
     os.makedirs(os.path.join(_dir(dataset_id), "clips"))
-    meta = {**meta, "id": dataset_id, "created": now(), "state": "importing", "failed": 0}
+    meta = {"state": "importing", "failed": 0, **meta, "id": dataset_id, "created": now()}
     with db.transaction() as s:
         s.add(Dataset(id=dataset_id, repo=meta["repo"], config=meta["config"], split=meta["split"],
                       created=meta["created"], meta=meta, items=[], summary=_counts([])))
@@ -262,19 +288,9 @@ def import_rows(dataset_id, rows, job, total=None):
             failed += 1
             current_app.logger.warning("row %s: cannot decode audio: %s", idx, e)
             continue
-        pcm = audio.to_pcm(x)
-        fname = f"clips/{idx:06d}.wav"
-        with open(os.path.join(_dir(dataset_id), fname), "wb") as f:
-            f.write(audio.wav_bytes(pcm, sr))
-        text = str(row.get(text_col) or "").strip()
         src = row.get(audio_col)
-        items.append({"idx": idx, "part": 0, "file": fname, "duration": round(len(pcm) / sr, 3),
-                      "source_file": src.get("path") if isinstance(src, dict) else None,
-                      "original_text": text, "text": text, "norm": None,
-                      "extra": {c: row.get(c) for c in extra_cols},
-                      "md5": hashlib.md5(pcm.tobytes()).hexdigest(), "audio": quality.audio_stats(x, sr),
-                      "trim": None, "asr_text": None, "cer": None, "flags": [], "category": "unchecked",
-                      "status": "todo", "reason": "", "reviewer": "", "updated": ""})
+        items.append(_new_item(dataset_id, idx, x, sr, row.get(text_col),
+                               src.get("path") if isinstance(src, dict) else None, {c: row.get(c) for c in extra_cols}))
         if len(items) % 25 == 0:
             job.progress(len(items), total, f"Imported {len(items)}" + (f" / {total}" if total else "") + " clips")
         if len(items) % SAVE_EVERY == 0:
@@ -287,6 +303,73 @@ def import_rows(dataset_id, rows, job, total=None):
         (" (stopped)" if job.stopped else "")
     job.progress(len(items), total or len(items), msg)
     return {"count": len(items), "failed": failed}
+
+
+def _new_item(dataset_id, idx, x, sr, text, source_file, extra):
+    """Save float samples x as clips/<idx>.wav and return its new item (still to review, not checked)."""
+    pcm = audio.to_pcm(x)
+    fname = f"clips/{idx:06d}.wav"
+    with open(os.path.join(_dir(dataset_id), fname), "wb") as f:
+        f.write(audio.wav_bytes(pcm, sr))
+    text = str(text or "").strip()
+    return {"idx": idx, "part": 0, "file": fname, "duration": round(len(pcm) / sr, 3), "source_file": source_file,
+            "original_text": text, "text": text, "norm": None, "extra": extra,
+            "md5": hashlib.md5(pcm.tobytes()).hexdigest(), "audio": quality.audio_stats(x, sr),
+            "trim": None, "asr_text": None, "cer": None, "flags": [], "category": "unchecked",
+            "status": "todo", "reason": "", "reviewer": "", "updated": ""}
+
+
+# ---------- upload from a local folder ----------
+def create_local(name, members, created_by):
+    """New, empty dataset for audio files + labels uploaded from the browser (add_files, then finish_local).
+    It is pushed like a Hub dataset: audio, transcription, transcription_normalized, file_name, ..."""
+    return create({"name": name, "source": "local", "repo": "", "config": "default", "split": "train",
+                   "audio_column": "audio", "text_column": "transcription", "extra_columns": ["file_name"],
+                   "column_types": {"file_name": "string"}, "start_row": 0, "max_rows": None, "source_sha": None,
+                   "members": members, "created_by": created_by, "state": "uploading"})
+
+
+def add_files(dataset_id, files):
+    """files: [(file name (path in the folder), encoded audio bytes, label text)] -> {added, skipped, failed}.
+    Each file becomes one clip (16 kHz mono), numbered after the clips already there. A file name already in the
+    dataset is skipped (an upload sent again after a network error does not make duplicates); a file that cannot be
+    decoded goes in failed [{file, error}]."""
+    sr, decoded, failed, skipped = current_app.config["SAMPLE_RATE"], [], [], []
+    have = {(it.get("extra") or {}).get("file_name") for it in load_items(dataset_id)}
+    for name, data, text in files:
+        if name in have:
+            skipped.append(name)
+            continue
+        if not name.lower().endswith(AUDIO_EXTS):
+            failed.append({"file": name, "error": "not an audio file"})
+            continue
+        try:
+            x = audio.decode_bytes(data, sr)
+            if not len(x):
+                raise ValueError("no samples")
+        except Exception as e:
+            current_app.logger.warning("%s: cannot decode audio: %s", name, e)
+            failed.append({"file": name, "error": f"cannot read the audio ({str(e)[:120] or e.__class__.__name__})"})
+            continue
+        have.add(name)
+        decoded.append((name, x, text))
+    with _lock(dataset_id):
+        items = load_items(dataset_id)
+        idx = max([it["idx"] for it in items] + [-1]) + 1
+        for name, x, text in decoded:
+            items.append(_new_item(dataset_id, idx, x, sr, text, name, {"file_name": name}))
+            idx += 1
+        _save_items(dataset_id, quality.refresh(items, _cfg()))
+        if failed:
+            update_meta(dataset_id, failed=(get_meta(dataset_id).get("failed") or 0) + len(failed))
+    return {"added": len(decoded), "skipped": skipped, "failed": failed}
+
+
+def finish_local(dataset_id):
+    """The upload is complete: the dataset is ready for review. Raises ValueError when it has no clip."""
+    if not load_items(dataset_id):
+        raise ValueError("No audio file could be added - nothing to review")
+    return update_meta(dataset_id, state="ready")
 
 
 def _decode(value, sr):

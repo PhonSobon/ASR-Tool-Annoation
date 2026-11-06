@@ -1,12 +1,13 @@
 "use client";
-// My Tasks: one card per task the user may see, search, pagination, delete (managers).
+// My Tasks: one card per task the user may see, search, pagination, delete (managers); tasks a manager opened for
+// claiming are listed under "Available to claim" with a Claim button (the user joins the task in their role).
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { Pager } from "@/components/Pager";
 import { useNotify } from "@/components/notify";
 import { useCrumbs, useSession } from "@/components/session";
-import { del, getJson } from "@/lib/api";
+import { api, del, getJson } from "@/lib/api";
 import { fmtDur } from "@/lib/format";
 import type { TaskSummary } from "@/lib/types";
 
@@ -31,6 +32,7 @@ export default function TasksPage() {
   const [q, setQ] = useState("");
   const [show, setShow] = useState("");
   const [page, setPage] = useState(1);
+  const [claiming, setClaiming] = useState("");
 
   const load = useCallback(async () => {
     try { setTasks((await getJson<{ tasks: TaskSummary[] }>("/api/tasks")).tasks); setError(""); }
@@ -38,11 +40,20 @@ export default function TasksPage() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  const mine = (tasks || []).filter(t => !t.can_claim), open = (tasks || []).filter(t => t.can_claim);
   const ql = q.trim().toLowerCase();
-  const list = (tasks || []).filter(t => (!ql || t.name.toLowerCase().includes(ql) || t.id.toLowerCase().includes(ql)) &&
+  const list = mine.filter(t => (!ql || t.name.toLowerCase().includes(ql) || t.id.toLowerCase().includes(ql)) &&
                                          (!show || SHOW[show].test(t)));
   const pages = Math.max(1, Math.ceil(list.length / PER_PAGE)), cur = Math.min(page, pages);
   const shown = list.slice((cur - 1) * PER_PAGE, cur * PER_PAGE);
+
+  const claim = async (t: TaskSummary) => {
+    setClaiming(t.id);
+    try { await api(`/api/tasks/${t.id}/claim`); }
+    catch (e: any) { setClaiming(""); load(); return notify("Cannot claim: " + e.message, "error"); }
+    notify(`You joined “${t.name}”.`, "success");
+    router.push(`/tasks/${t.id}`);
+  };
 
   const remove = async (t: TaskSummary) => {
     if (!await askConfirm(`Delete task “${t.name}”? Its ${t.audio_count} audio and all segments/text will be removed. This cannot be undone.`,
@@ -59,6 +70,31 @@ export default function TasksPage() {
         <p>Each task is a batch of audio pushed from Upload &amp; Crop. Annotators complete its packages, quality inspectors
           pass or return them, and acceptors give the final acceptance.</p>
       </div>
+      {open.length > 0 && (
+        <div className="panel">
+          <div className="toolbar"><b className="sec-title"><Icon name="inbox" /> Available to claim ({open.length})</b>
+            <span className="muted">Open tasks you are not in yet — claim one to start working on it.</span></div>
+          <div className="cards">
+            {open.map(t => (
+              <div className="task-card claim-card" key={t.id}>
+                <div className="tc-tags">
+                  <span className="tag">{t.audio_count} audio</span><span className="tag">{fmtDur(t.duration)}</span><span className="tag">{t.count} packages</span></div>
+                <div className="tc-body">
+                  <h3>{t.name}</h3>
+                  <div className="tc-desc">Created {t.created}{t.created_by ? ` by ${t.created_by}` : ""}</div>
+                  <div className="stats">
+                    <span className="pill">To annotate {t.stages.annotating + t.stages.returned}</span>
+                    <span className="pill">To inspect {t.stages.inspecting}</span>
+                    <span className="pill">To accept {t.stages.accepting}</span>
+                  </div>
+                  <button className="claim-btn" disabled={!!claiming} onClick={() => claim(t)}>
+                    <Icon name={claiming === t.id ? "loader" : "plus"} className={claiming === t.id ? "spin" : ""} /> Claim task</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="panel">
         <div className="toolbar">
           <div className="search">
@@ -71,8 +107,8 @@ export default function TasksPage() {
           </select>
           {(q || show) && <button type="button" className="sec" onClick={() => { setQ(""); setShow(""); setPage(1); }}>Clear</button>}
           <span className="spacer" />
-          <span className="count-note">{list.length === (tasks || []).length ? `${list.length} tasks` : `${list.length} of ${(tasks || []).length} tasks`}</span>
-          {can("audio.upload") && <button onClick={() => router.push("/upload")}><Icon name="plus" /> Upload audio</button>}
+          <span className="count-note">{list.length === mine.length ? `${list.length} tasks` : `${list.length} of ${mine.length} tasks`}</span>
+          {can("audio.upload") && <button onClick={() => router.push("/upload")}><Icon name="plus" /> Load Data</button>}
         </div>
         <div className="cards">
           {shown.map(t => {
@@ -103,7 +139,8 @@ export default function TasksPage() {
         </div>
         {tasks && !list.length && (
           <div className="empty">{error || (q || show ? "No task matches these filters."
-            : can("audio.upload") ? "No tasks yet — upload and cut audio in “Upload & Crop”, then push it to a task."
+            : can("audio.upload") ? "No tasks yet — make one in “Load Data”: upload and cut audio, or load a Hugging Face dataset or a local folder."
+            : open.length ? "No task is assigned to you yet — claim one above, or ask your project manager."
             : "No task is assigned to you yet — ask your project manager to add you to one.")}</div>
         )}
         {list.length > PER_PAGE && <Pager page={cur} pages={pages} onPage={setPage} className="pager"

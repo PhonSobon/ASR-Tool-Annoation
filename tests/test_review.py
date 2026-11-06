@@ -108,6 +108,28 @@ def test_hub_push_keeps_only_accepted_packages(team):
         assert len(tasks.hub_segments(t["task"], "done")) == 2
 
 
+def test_task_claim(client, add_user):
+    ana, ian = add_user("ana", "annotator"), add_user("ian", "inspector")
+    a = upload(client)
+    task = client.post("/api/tasks", json={"name": "T", "audio_ids": [a["id"]]}).json["id"]
+    assert ana.get("/api/tasks").json["tasks"] == []                                # assign-only by default
+    assert ana.post(f"/api/tasks/{task}/claim").status_code == 400
+    assert ana.put(f"/api/tasks/{task}/members", json={"open_roles": ["annotator"]}).status_code == 403
+    r = client.put(f"/api/tasks/{task}/members", json={"open_roles": ["annotator", "bogus"]}).json
+    assert r["open_roles"] == ["annotator"]
+    [card] = ana.get("/api/tasks").json["tasks"]
+    assert card["can_claim"] and not card["access"]["view"]
+    assert ana.get(f"/api/tasks/{task}").status_code == 403                         # only the card until claimed
+    assert ian.get("/api/tasks").json["tasks"] == []                                # inspectors are not open
+    assert ian.post(f"/api/tasks/{task}/claim").status_code == 400
+    assert ana.post(f"/api/tasks/{task}/claim").json["members"]["annotator"] == ["ana"]
+    assert ana.post(f"/api/tasks/{task}/claim").status_code == 400                  # already in
+    [card] = ana.get("/api/tasks").json["tasks"]
+    assert not card["can_claim"] and card["access"]["edit"]
+    r = client.put(f"/api/tasks/{task}/members", json={"annotator": ["ana"]}).json
+    assert r["open_roles"] == ["annotator"]                                         # left out: unchanged
+
+
 # ---------- datasets ----------
 def test_dataset_members(client, add_user, ds):
     ana, ian = add_user("ana", "annotator"), add_user("ian", "inspector")
@@ -120,6 +142,20 @@ def test_dataset_members(client, add_user, ds):
     assert ian.post(f"/api/datasets/{ds}/accept-passing", json={}).status_code == 200
     assert ana.post(f"/api/datasets/{ds}/check", json={}).status_code == 403
     assert ana.delete(f"/api/datasets/{ds}").status_code == 403
+
+
+def test_dataset_claim(client, add_user, ds):
+    ana, vic = add_user("ana", "annotator"), add_user("vic", "viewer")
+    assert ana.post(f"/api/datasets/{ds}/claim").status_code == 400               # not open
+    r = client.put(f"/api/datasets/{ds}/members", json={"members": [], "open": True}).json
+    assert r == {"members": [], "open": True}
+    [card] = ana.get("/api/datasets").json["datasets"]
+    assert card["can_claim"] and not card["access"]["view"]
+    assert vic.post(f"/api/datasets/{ds}/claim").status_code == 400               # viewers do not review
+    assert ana.post(f"/api/datasets/{ds}/claim").json["members"] == ["ana"]
+    assert ana.post(f"/api/datasets/{ds}/claim").status_code == 400               # already in
+    assert ana.get(f"/api/datasets/{ds}").status_code == 200
+    assert client.put(f"/api/datasets/{ds}/members", json={"members": ["ana"]}).json["open"] is True   # kept
 
 
 # ---------- reading big splits from the Hub ----------

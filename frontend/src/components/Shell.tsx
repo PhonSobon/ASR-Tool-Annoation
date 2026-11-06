@@ -14,9 +14,8 @@ import { useNotify } from "./notify";
 import { useSession } from "./session";
 
 const MENU: { head: string; icon: IconName; perm?: string; items: { href: string; label: string; perm?: string }[] }[] = [
+  { head: "Data", icon: "database", perm: "audio.upload", items: [{ href: "/upload", label: "Load Data" }] },
   { head: "Workbench", icon: "dashboard", items: [{ href: "/tasks", label: "My Tasks" }] },
-  { head: "Audio Annotation", icon: "mic", perm: "audio.upload", items: [{ href: "/upload", label: "Upload & Crop" }] },
-  { head: "Dataset Cleaning", icon: "database", items: [{ href: "/datasets", label: "Hugging Face Datasets" }] },
   { head: "Administration", icon: "users", perm: "users.manage",
     items: [{ href: "/users", label: "Users & Roles" }, { href: "/activity", label: "Activity & Status" },
             { href: "/work", label: "Work Dashboard" }] },

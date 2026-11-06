@@ -4,9 +4,11 @@ There is no sign-up: the administrator of .env (ADMIN_USERNAME / ADMIN_PASSWORD)
 default password, which its owner replaces with their own at the first sign-in. Administrators do not change their own
 password here.
 """
-from flask import Blueprint, current_app, jsonify, request
+import io
 
-from . import activity, guard, roles, users, workload
+from flask import Blueprint, current_app, jsonify, request, send_file
+
+from . import activity, guard, report, roles, users, workload
 from .guard import require
 
 bp = Blueprint("auth", __name__, url_prefix="/api")
@@ -162,3 +164,18 @@ def activity_work():
     """?since=YYYY-MM-DD&until=YYYY-MM-DD -> what every user produced: annotation hours, returns, acceptances,
     reviews and dataset clips (the Work Dashboard)."""
     return jsonify(workload.stats(request.args.get("since", ""), request.args.get("until", "")))
+
+
+@bp.get("/activity/report")
+@require("users.manage")
+def activity_report():
+    """?period=week|month|custom&date=YYYY-MM-DD (a day in the week / month) or &since=&until= (custom)
+    -> activity_<period>.xlsx: Summary, Users (status and work of everyone), Daily, Activity log."""
+    a = request.args
+    try:
+        since, until, title = report.period(a.get("period", "week"), a.get("date"), a.get("since", ""), a.get("until", ""))
+    except ValueError as e:
+        return jsonify(error=str(e)), 400
+    name = f"activity_{since}_to_{until}.xlsx"
+    return send_file(io.BytesIO(report.build(since, until, title)), as_attachment=True, download_name=name,
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

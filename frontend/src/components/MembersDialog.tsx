@@ -1,20 +1,23 @@
 "use client";
-// Members dialog (tasks and datasets): tick who works on it, per group.
+// Members dialog (tasks and datasets): tick who works on it, per group, and (claim) which roles may join it themselves.
 import { useEffect, useRef, useState } from "react";
 import type { DirectoryUser } from "@/lib/types";
 import { ROLE_LABEL, useSession } from "./session";
 
 export interface MemberGroup { key: string; label: string; roles: string[] }
+/** "Open for claiming": the options ticked are saved as `open` (e.g. ["annotator"]) */
+export interface ClaimOption { text: string; options: { key: string; label: string }[]; current: string[] }
 
-export function MembersDialog({ title, text, groups, current, onSave, onClose }: {
-  title: string; text: string; groups: MemberGroup[]; current: Record<string, string[] | undefined>;
-  onSave: (value: Record<string, string[]>) => void; onClose: () => void;
+export function MembersDialog({ title, text, groups, current, claim, onSave, onClose }: {
+  title: string; text: string; groups: MemberGroup[]; current: Record<string, string[] | undefined>; claim?: ClaimOption;
+  onSave: (value: Record<string, string[]>, open: string[]) => void; onClose: () => void;
 }) {
   const { directory, can } = useSession();
   const ref = useRef<HTMLDialogElement>(null);
   const [people, setPeople] = useState<DirectoryUser[] | null>(null);
   const [value, setValue] = useState<Record<string, string[]>>(
     () => Object.fromEntries(groups.map(g => [g.key, [...(current[g.key] || [])]])));
+  const [open, setOpen] = useState<string[]>(() => [...(claim?.current || [])]);
 
   useEffect(() => { ref.current?.showModal(); directory().then(setPeople).catch(() => setPeople([])); }, [directory]);
   const toggle = (key: string, u: string) => setValue(v => ({
@@ -25,6 +28,18 @@ export function MembersDialog({ title, text, groups, current, onSave, onClose }:
       <h3>{title}</h3>
       <p className="muted">{text}</p>
       <div className="mem-groups">
+        {claim && (
+          <fieldset className="mem-group mem-claim">
+            <legend>Open for claiming</legend>
+            <p className="muted">{claim.text}</p>
+            {claim.options.map(o => (
+              <label key={o.key}>
+                <input type="checkbox" checked={open.includes(o.key)}
+                       onChange={() => setOpen(l => l.includes(o.key) ? l.filter(x => x !== o.key) : [...l, o.key])} /> {o.label}
+              </label>
+            ))}
+          </fieldset>
+        )}
         {groups.map(g => {
           const list = (people || []).filter(u => g.roles.includes(u.role));
           return (
@@ -42,7 +57,7 @@ export function MembersDialog({ title, text, groups, current, onSave, onClose }:
       </div>
       <div className="confirm-actions">
         <button type="button" className="sec" onClick={onClose}>Cancel</button>
-        <button type="button" onClick={() => onSave(value)}>Save</button>
+        <button type="button" onClick={() => onSave(value, open)}>Save</button>
       </div>
     </dialog>
   );

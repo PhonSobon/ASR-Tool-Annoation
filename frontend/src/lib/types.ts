@@ -42,10 +42,17 @@ export interface Members { annotator: string[]; inspector: string[]; acceptor: s
 export interface TaskAccess { view: boolean; edit: boolean; inspect: boolean; accept: boolean; manage: boolean }
 export interface LastPush { repo: string; split: string; url: string; at: string; pr: boolean }
 
+/** Load Data: a Hugging Face batch of rows or a local folder; each clip is one package with its text */
+export interface TaskSource {
+  kind: "hub" | "local"; state?: "loading" | "ready"; failed?: number; loaded?: number;
+  repo?: string; config?: string; split?: string; start_row?: number; max_rows?: number | null;
+}
 export interface TaskSummary {
   id: string; name: string; created: string; created_by: string; updated: string;
   members: Members; audio_count: number; duration: number; count: number; done: number; todo: number;
   stages: Record<string, number>; access: TaskAccess | null; last_push?: LastPush | null;
+  open_roles?: string[]; can_claim?: boolean;   // roles that may claim the task; the user may claim it (not a member yet)
+  source?: TaskSource | null;                    // Load Data: where the clips came from (null = pushed from Upload & cut)
 }
 export interface Task extends TaskSummary { audios: (AudioSummary & { segments: Crop[] })[] }
 
@@ -68,6 +75,8 @@ export interface DatasetSummary {
   category_counts: Record<"pass" | "review" | "bad" | "unchecked", number>;
   batch: { start: number; end: number | null; name: string; prefix: string } | null;
   job: Job | null; access: DatasetAccess | null; last_push?: LastPush | null;
+  open?: boolean; can_claim?: boolean;          // reviewers may claim it; the user may claim it (not a member yet)
+  source?: "local"; state?: "importing" | "uploading" | "ready";   // "local": uploaded from a folder (no Hub repo)
 }
 export interface Dataset extends DatasetSummary {
   items: ClipItem[]; cer_pass: number; sibling_push: LastPush | null;

@@ -1,9 +1,11 @@
 "use client";
 // Activity & Status (Administrator only): every user of every role with their status (online, signed out, never
 // signed in, default password, deactivated) and how much they did today / this week, and the full activity log
-// (sign-ins, wrong passwords, every change) with filters. Refreshes every 30 s.
+// (sign-ins, wrong passwords, every change) with filters. Refreshes every 30 s. ReportPanel downloads an Excel report
+// of everyone for a week, a month or any period.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { DateRangePicker } from "@/components/DateRangePicker";
 import { Icon } from "@/components/Icon";
 import type { IconName } from "@/components/icon-sprite";
 import { Pager } from "@/components/Pager";
@@ -101,6 +103,8 @@ export default function ActivityPage() {
           <Icon name="restore" /> Refresh</button>
       </div>
 
+      <ReportPanel today={over.today} />
+
       <div className="act-cards">
         {cards.map(c => (
           <button key={c.label} type="button" className={`act-card ${c.tone || ""}${c.status && userView.status === c.status ? " on" : ""}`}
@@ -169,10 +173,9 @@ export default function ActivityPage() {
             <option value="">Every action</option>
             {over.actions.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
           </select>
-          <label>From <input type="date" value={filter.since} onChange={e => set("since", e.target.value)} /></label>
-          <label>To <input type="date" value={filter.until} onChange={e => set("until", e.target.value)} /></label>
+          <DateRangePicker label="Log dates" since={filter.since} until={filter.until} max={over.today}
+                           onChange={(since, until) => { setFilter(f => ({ ...f, since, until })); setPage(1); }} />
           <input type="search" placeholder="Search details" value={filter.q} onChange={e => set("q", e.target.value)} />
-          <button type="button" className="sec small" onClick={() => set("since", over.today)}>Today</button>
           <button type="button" className="sec small" disabled={JSON.stringify(filter) === JSON.stringify(NO_FILTER)}
                   onClick={() => { setFilter(NO_FILTER); setPage(1); }}>Clear</button>
         </div>
@@ -199,5 +202,73 @@ export default function ActivityPage() {
                        perPage={per} perOptions={[25, 50, 100, 200]} onPer={n => { setPer(n); setPage(1); }} />}
       </div>
     </section>
+  );
+}
+
+// ---------- Excel report ----------
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const day = (s: string) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+const fmtDay = (d: Date) => d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
+/** The last 12 weeks (Monday - Sunday) and months, newest first: [a day in it, label]. */
+function periods(today: string) {
+  const t = day(today), mon = new Date(t);
+  mon.setDate(t.getDate() - (t.getDay() + 6) % 7);
+  const weeks = Array.from({ length: 12 }, (_, k) => {
+    const a = new Date(mon); a.setDate(mon.getDate() - 7 * k);
+    const b = new Date(a); b.setDate(a.getDate() + 6);
+    return [iso(a), `${k === 0 ? "This week" : k === 1 ? "Last week" : "Week of"} · ${fmtDay(a)} – ${fmtDay(b)}`];
+  });
+  const months = Array.from({ length: 12 }, (_, k) => {
+    const a = new Date(t.getFullYear(), t.getMonth() - k, 1);
+    return [iso(a), a.toLocaleDateString("en-GB", { month: "long", year: "numeric" }) + (k === 0 ? " (this month)" : "")];
+  });
+  return { weeks, months };
+}
+
+function ReportPanel({ today }: { today: string }) {
+  const { notify } = useNotify();
+  const { weeks, months } = useMemo(() => periods(today), [today]);
+  const [kind, setKind] = useState<"week" | "month" | "custom">("week");
+  const [pick, setPick] = useState({ week: weeks[0][0], month: months[0][0], since: today.slice(0, 8) + "01", until: today });
+  const [busy, setBusy] = useState(false);
+
+  const qs = kind === "custom" ? `period=custom&since=${pick.since}&until=${pick.until}` : `period=${kind}&date=${pick[kind]}`;
+  const get = async () => {
+    if (kind === "custom" && (!pick.since || !pick.until)) return notify("Choose the first and the last day.", "warn");
+    setBusy(true);
+    try {   // fetched here (not a plain link), so an error shows as a message instead of a broken file
+      const r = await fetch(`/api/activity/report?${qs}`);
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+      const name = /filename="?([^";]+)/.exec(r.headers.get("Content-Disposition") || "")?.[1] || "activity_report.xlsx";
+      const url = URL.createObjectURL(await r.blob()), a = document.createElement("a");
+      a.href = url; a.download = name; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (e: any) { notify("Cannot make the report: " + e.message, "error"); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="panel report-panel">
+      <div className="act-bar">
+        <b className="sec-title"><Icon name="download" /> Download report (Excel)</b>
+        <span className="muted">Everyone&apos;s status, sign-ins, actions per day, annotation / review / cleaning work and the full log for the period.</span>
+      </div>
+      <div className="report-row">
+        <div className="presets" role="group" aria-label="Report period">
+          {(["week", "month", "custom"] as const).map(k => (
+            <button key={k} type="button" className={`sec preset${kind === k ? " on" : ""}`} onClick={() => setKind(k)}>
+              {{ week: "Weekly", month: "Monthly", custom: "Custom" }[k]}</button>))}
+        </div>
+        {kind === "week" && <select aria-label="Week" value={pick.week} onChange={e => setPick({ ...pick, week: e.target.value })}>
+          {weeks.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
+        {kind === "month" && <select aria-label="Month" value={pick.month} onChange={e => setPick({ ...pick, month: e.target.value })}>
+          {months.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
+        {kind === "custom" && <DateRangePicker label="Report dates" since={pick.since} until={pick.until} max={today} placeholder="Choose the dates"
+                                                onChange={(since, until) => setPick({ ...pick, since, until })} />}
+        <button type="button" onClick={get} disabled={busy}>
+          {busy ? <><Icon name="loader" className="spin" /> Preparing…</> : <><Icon name="download" /> Download .xlsx</>}</button>
+      </div>
+    </div>
   );
 }

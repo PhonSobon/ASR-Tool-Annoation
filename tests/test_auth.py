@@ -140,3 +140,30 @@ def test_weak_admin_password_in_env_stops_the_start(tmp_path):
     import pytest
     with pytest.raises(SystemExit, match="ADMIN_PASSWORD"):
         create_app(app_config(tmp_path, ADMIN_PASSWORD="admin-pass-1"))
+
+
+def test_activity_report_excel(client, add_user):
+    import io as _io
+    import time as _time
+
+    from openpyxl import load_workbook
+
+    from backend.auth import report
+
+    ana = add_user("ana", "annotator")
+    ana.post("/api/auth/logout")
+    today = _time.strftime("%Y-%m-%d")
+    for qs in ("period=week", "period=month", f"period=custom&since={today}&until={today}"):
+        r = client.get(f"/api/activity/report?{qs}&date={today}")
+        assert r.status_code == 200 and r.mimetype.endswith("spreadsheetml.sheet"), qs
+        wb = load_workbook(_io.BytesIO(r.data))
+        assert wb.sheetnames == ["Summary", "Users", "Daily", "Activity log"]
+        users = list(wb["Users"].iter_rows(values_only=True))
+        assert users[0][:3] == ("Username", "Full Name", "Role")
+        row = next(r for r in users if r[0] == "ana")
+        assert row[2] == "Annotator" and row[5] >= 1          # signed in
+        assert any(r[1] == "admin" and r[4] == "Added a user" for r in wb["Activity log"].iter_rows(values_only=True))
+    assert client.get("/api/activity/report?period=custom&since=x&until=y").status_code == 400
+    assert ana.get("/api/activity/report?period=week").status_code in (401, 403)
+    assert report.period("week", "2026-11-06")[:2] == ("2026-11-02", "2026-11-08")
+    assert report.period("month", "2024-02-10")[:2] == ("2024-02-01", "2024-02-29")

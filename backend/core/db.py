@@ -62,6 +62,8 @@ class Task(Base):
     created_by: Mapped[str] = mapped_column(String(32), default="")
     members: Mapped[dict] = mapped_column(Json, default=dict)    # {"annotator": [...], "inspector": [...], ...}
     last_push: Mapped[dict | None] = mapped_column(Json, nullable=True)
+    open_roles: Mapped[list | None] = mapped_column(Json, nullable=True)   # member roles that may claim it themselves
+    source: Mapped[dict | None] = mapped_column(Json, nullable=True)       # Load Data: where the clips came from
 
 
 class Audio(Base):
