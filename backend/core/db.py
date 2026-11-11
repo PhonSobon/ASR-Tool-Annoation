@@ -64,6 +64,7 @@ class Task(Base):
     last_push: Mapped[dict | None] = mapped_column(Json, nullable=True)
     open_roles: Mapped[list | None] = mapped_column(Json, nullable=True)   # member roles that may claim it themselves
     source: Mapped[dict | None] = mapped_column(Json, nullable=True)       # Load Data: where the clips came from
+    pulled: Mapped[list | None] = mapped_column(Json, nullable=True)       # [{username, role, at}]: who pulled it themselves
 
 
 class Audio(Base):

@@ -1,6 +1,6 @@
 /* Account menu, members dialog, Users & Roles page */
 .me { position:relative; }
-.me-menu { position:absolute; right:0; top:44px; width:260px; background:#fff; border:1px solid var(--border); border-radius:var(--r);
+.me-menu { position:absolute; right:0; top:44px; width:260px; background:var(--card); border:1px solid var(--border); border-radius:var(--r);
            box-shadow:0 10px 30px rgba(15,23,42,.12); padding:6px; z-index:40; }
 .me-who { display:flex; flex-direction:column; gap:2px; padding:8px 10px 10px; border-bottom:1px solid var(--border); margin-bottom:4px; }
 .me-item { display:flex; width:100%; height:auto; justify-content:flex-start; text-align:left; background:none; color:var(--text-2); font-weight:400; padding:8px 10px; border:0; border-radius:var(--r-sm); text-decoration:none; }
@@ -24,14 +24,14 @@ dialog.confirm .fld input { width:100%; }
 .u-name .pill { font-size:var(--fs-xs); }
 .u-avatar { width:28px; height:28px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; flex:none;
             font-size:var(--fs-xs); font-weight:600; color:#fff; background:#64748b; }
-.u-avatar.r-admin { background:#7c3aed; }
+.u-avatar.r-admin { background:#1e3a8a; }
 .u-avatar.r-manager { background:#2563eb; }
-.u-avatar.r-annotator { background:#0891b2; }
-.u-avatar.r-inspector { background:#d97706; }
-.u-avatar.r-acceptor { background:#16a34a; }
+.u-avatar.r-annotator { background:#3b82f6; }
+.u-avatar.r-inspector { background:#64748b; }
+.u-avatar.r-acceptor { background:#1e40af; }
 .u-fullname { width:100%; min-width:160px; border-color:transparent; background:transparent; }
 .u-fullname:hover { border-color:var(--border); }
-.u-fullname:focus { border-color:var(--primary); background:#fff; }
+.u-fullname:focus { border-color:var(--primary); background:var(--card); }
 .user-table tr.inactive .u-avatar { opacity:.5; }
 .user-table .u-acts-h { text-align:center; }
 .u-acts { justify-content:center; }
@@ -45,9 +45,9 @@ dialog.confirm .fld input { width:100%; }
 /* Password rules checklist (components/PasswordRules.tsx) */
 .pw-rules { list-style:none; margin:2px 0 0; padding:0; display:grid; grid-template-columns:1fr 1fr; gap:3px 14px; font-size:var(--fs-xs); color:var(--muted); }
 .pw-rules li { display:flex; align-items:center; gap:5px; }
-.pw-rules li .i { width:13px; height:13px; color:#9ca3af; }
+.pw-rules li .i { width:13px; height:13px; color:var(--faint); }
 .pw-rules li.ok { color:var(--ok); }
 .pw-rules li.ok .i { color:var(--ok); }
 dialog.confirm .pw-rules { margin-top:8px; }
 .panel .user-form + .pw-rules { margin-top:10px; max-width:520px; }
-.login-card .pw-rules { grid-template-columns:1fr; }
+.auth-card .pw-rules { grid-template-columns:1fr; }

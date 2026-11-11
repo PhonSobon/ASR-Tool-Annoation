@@ -1,7 +1,7 @@
 """Khmer ASR annotation tool - Flask backend (JSON API; the web UI is the Next.js app in frontend/).
 
 Upload audio, split it into segments on one timeline, transcribe each segment with the local Omnilingual-ASR-Khm
-model, have the packages checked (inspection, acceptance), and export a WAV + metadata.json dataset. Imported Hugging
+model, have the packages checked (one review step), and export a WAV + metadata.json dataset. Imported Hugging
 Face datasets are cleaned the same way. Every feature is a package with its logic and its routes:
 
     core/        storage, audio, text, background jobs, Hugging Face Hub, ZIP export
@@ -59,6 +59,7 @@ def _first_admin(app):
     """The administrator of .env (ADMIN_USERNAME, default "admin" / ADMIN_PASSWORD): made, or kept in step with .env."""
     from .auth import users
 
+    users.merge_old_roles()
     name, password = app.config.get("ADMIN_USERNAME") or "admin", app.config.get("ADMIN_PASSWORD")
     if password:
         try:
@@ -69,12 +70,12 @@ def _first_admin(app):
 
 def _register_blueprints(app):
     from . import pages
-    from .annotation.routes import audios, export, media, tasks
+    from .annotation.routes import audios, dashboard, export, media, tasks
     from .asr import routes as asr
     from .auth import activity, guard, routes as auth
     from .cleaning import routes as cleaning
 
     app.before_request(guard.check_api_login)
     app.after_request(activity.record)
-    for bp in (pages.bp, auth.bp, audios.bp, media.bp, tasks.bp, asr.bp, export.bp, cleaning.bp):
+    for bp in (pages.bp, auth.bp, audios.bp, media.bp, tasks.bp, dashboard.bp, asr.bp, export.bp, cleaning.bp):
         app.register_blueprint(bp)

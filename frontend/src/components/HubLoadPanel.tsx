@@ -85,7 +85,7 @@ export function HubLoadPanel() {
     <div className="panel">
       <b className="sec-title"><Icon name="download" /> Load a Hugging Face dataset into tasks</b>
       <p className="muted">For speech that already has its text: every clip becomes a package of a task with the text filled in.
-        Annotators check it (no recognition needed), then inspection and acceptance as usual.</p>
+        Annotators check it (no recognition needed), then the review as usual.</p>
       <div className="imp-row">
         <label className="fld grow"><span className="req">Dataset</span>
           <input placeholder="e.g. seanghay/khmer_mpwt_speech or its URL" autoComplete="off" value={repo}

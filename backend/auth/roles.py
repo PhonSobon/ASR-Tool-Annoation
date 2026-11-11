@@ -3,38 +3,35 @@
     admin       everything, and manages the users
     manager     uploads audio, makes tasks, imports datasets, assigns people, exports and pushes to the Hub
     annotator   annotates the packages of the tasks they are assigned to; reviews clips of assigned datasets
-    inspector   quality check: passes or returns the completed packages of assigned tasks (may fix the text)
-    acceptor    final acceptance of the packages that passed inspection
-    viewer      sees every task and dataset, changes nothing
+    inspector   the reviewer: accepts or returns the completed packages of assigned tasks (may fix the text) - one
+                review step; the old "acceptor" role was merged into it (users.merge_old_roles)
+The old "viewer" role was removed: such users become annotators (users.merge_old_roles).
 """
 ROLES = {
     "admin": ("Administrator", "Adds every account, sees every user's status and the full activity log."),
     "manager": ("Project Manager", "Uploads audio, makes tasks, imports datasets, assigns people, exports."),
     "annotator": ("Annotator", "Annotates the packages and dataset clips they are assigned to."),
-    "inspector": ("Quality Inspector", "Checks completed packages: pass, fix the text, or return."),
-    "acceptor": ("Acceptor", "Final acceptance of the packages that passed inspection."),
-    "viewer": ("Viewer", "Sees every task and dataset, changes nothing."),
+    "inspector": ("Reviewer", "Reviews completed packages: accept, fix the text, or return to the annotator."),
 }
 
 _ALL = set(ROLES)
 _STAFF = {"admin", "manager"}
-_WORKERS = {"annotator", "inspector", "acceptor"}
+_WORKERS = {"annotator", "inspector"}
 
 PERMISSIONS = {
     "users.manage": {"admin"},
     "audio.upload": _STAFF,                                  # Upload & Crop, push audio to a new task
     "task.manage": _STAFF,                                   # delete tasks, assign people
-    "task.view_all": _STAFF | {"viewer"},                    # the others see only the tasks they are assigned to
+    "task.view_all": _STAFF,                                 # the others see only the tasks they are assigned to
     "task.annotate": _STAFF | {"annotator"},
-    "task.inspect": _STAFF | {"inspector"},
-    "task.accept": _STAFF | {"acceptor"},
+    "task.review": _STAFF | {"inspector"},                    # accept or return completed packages
     "asr.run": _STAFF | _WORKERS,
     "data.export": _STAFF,                                   # ZIP downloads
     "hub.push": _STAFF,
     "dataset.manage": _STAFF,                                # import, run checks, delete, assign
-    "dataset.view_all": _STAFF | {"viewer"},
+    "dataset.view_all": _STAFF,
     "dataset.review": _STAFF | _WORKERS,                     # accept / reject / fix clips of assigned datasets
-    "dataset.bulk_accept": _STAFF | {"inspector", "acceptor"},
+    "dataset.bulk_accept": _STAFF | {"inspector"},
 }
 assert all(roles <= _ALL for roles in PERMISSIONS.values())
 

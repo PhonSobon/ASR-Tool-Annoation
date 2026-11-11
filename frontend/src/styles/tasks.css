@@ -10,7 +10,7 @@
 .search.sm input { width:100%; }
 
 .cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px; }
-.task-card { display:flex; flex-direction:column; border:1px solid var(--border); border-radius:var(--r-lg); background:#fff; cursor:pointer;
+.task-card { display:flex; flex-direction:column; border:1px solid var(--border); border-radius:var(--r-lg); background:var(--card); cursor:pointer;
              box-shadow:var(--shadow); transition:box-shadow .15s, border-color .15s, transform .15s; }
 .task-card:hover, .task-card:focus-visible { box-shadow:0 8px 24px rgba(16,24,40,.10); border-color:var(--primary-line); outline:0; transform:translateY(-1px); }
 .claim-card { cursor:default; border-style:dashed; }
@@ -32,8 +32,9 @@
 .pager { justify-content:center; }
 .pkg-pager { justify-content:flex-end; }
 .pager > span:first-child, .pkg-pager > span:first-child { margin-right:8px; }
-:is(.pager, .pkg-pager) button { min-width:var(--h); height:var(--h); padding:0 10px; background:#fff; color:var(--text-2); border:1px solid var(--border-2); }
+:is(.pager, .pkg-pager) button { min-width:var(--h); height:var(--h); padding:0 10px; background:var(--card); color:var(--text-2); border:1px solid var(--border-2); }
 :is(.pager, .pkg-pager) button:hover:not(:disabled) { background:var(--soft); border-color:var(--primary); color:var(--primary); }
 :is(.pager, .pkg-pager) button.on { background:var(--primary); border-color:var(--primary); color:#fff; }
 :is(.pager, .pkg-pager) select { margin-left:8px; }
 :is(.pager, .pkg-pager) input.num { width:64px; margin:0 4px; }
+.tc-share { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px; }

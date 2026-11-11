@@ -1,0 +1,46 @@
+/* Home page "How it works" timeline (components/Timeline.tsx). No cards: text on either side of one line. */
+.tl { position:relative; list-style:none; margin:0 auto; padding:8px 0; max-width:1000px; }
+.tl-line { position:absolute; top:0; bottom:0; left:50%; width:3px; margin-left:-1.5px; border-radius:2px; background:var(--border); overflow:hidden; }
+.tl-line i { position:absolute; inset:0; transform-origin:top; transform:scaleY(0);
+             background:linear-gradient(var(--primary), var(--violet)); transition:transform .15s linear; }
+
+.tl-step { position:relative; display:grid; grid-template-columns:1fr 64px 1fr; align-items:start; min-height:120px; }
+.tl-step + .tl-step { margin-top:28px; }
+.tl-dot { grid-column:2; justify-self:center; position:relative; z-index:1; display:grid; place-items:center; width:48px; height:48px;
+          border-radius:50%; background:var(--bg); color:var(--faint); border:2px solid var(--border-2);
+          transition:background .4s, color .4s, border-color .4s, box-shadow .4s, transform .4s; }
+.tl-dot .i { width:20px; height:20px; }
+.tl-step.in .tl-dot { background:var(--primary); color:#fff; border-color:var(--primary); transform:scale(1.06);
+                      box-shadow:0 0 0 6px var(--primary-soft); }
+
+.tl-body { grid-row:1; padding-top:4px; opacity:.25; transition:opacity .6s, transform .6s cubic-bezier(.2,.8,.2,1); }
+.tl-step.left .tl-body { grid-column:1; text-align:right; padding-right:28px; transform:translateX(-24px); }
+.tl-step.right .tl-body { grid-column:3; text-align:left; padding-left:28px; transform:translateX(24px); }
+.tl-step.in .tl-body { opacity:1; transform:none; }
+
+.tl-num { display:block; font-size:var(--fs-xs); font-weight:700; letter-spacing:.12em; color:var(--primary-text); }
+.tl-body h3 { margin:2px 0 6px; font-size:24px; letter-spacing:-.02em; }
+.tl-who { display:inline-block; font-size:var(--fs-xs); font-weight:600; color:var(--muted); }
+.tl-who::before { content:"● "; color:var(--primary); }
+.tl-body p { margin:10px 0 8px; font-size:var(--fs-lg); line-height:1.6; color:var(--text-2); }
+.tl-body ul { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; }
+.tl-body ul li { font-size:var(--fs-md); color:var(--muted); }
+.tl-step.left .tl-body ul li::after { content:" ·"; color:var(--primary); }
+.tl-step.right .tl-body ul li::before { content:"· "; color:var(--primary); }
+.tl-out { display:inline-block; margin-top:10px; font-size:var(--fs-md); font-weight:600; color:var(--primary-text); }
+
+/* tablets and phones: the line on the left, every step on its right */
+@media (max-width:860px) {
+  .tl-line { left:24px; }
+  .tl-step { grid-template-columns:48px 1fr; column-gap:16px; }
+  .tl-dot { grid-column:1; }
+  .tl-step.left .tl-body, .tl-step.right .tl-body { grid-column:2; text-align:left; padding:0; transform:translateY(16px); }
+  .tl-step.left .tl-body ul li::after { content:none; }
+  .tl-step.left .tl-body ul li::before { content:"· "; color:var(--primary); }
+  .tl-body h3 { font-size:20px; }
+  .tl-body p { font-size:var(--fs-md); }
+}
+@media (prefers-reduced-motion:reduce) {
+  .tl-line i, .tl-dot, .tl-body { transition:none; }
+}
+.lp-sec.alt .tl-dot { background:var(--soft); }

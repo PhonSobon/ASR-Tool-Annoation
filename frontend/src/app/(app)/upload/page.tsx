@@ -322,7 +322,7 @@ function Thumb({ id }: { id: string | null }) {
       let max = 1;
       for (let k = 0; k < a.length; k++) max = Math.max(max, Math.abs(a[k]));
       g.clearRect(0, 0, w, h);
-      g.fillStyle = "#5f8a6a";
+      g.fillStyle = "#64748b";
       for (let x = 0; x < w; x++) {
         const b = Math.floor(x / w * n), lo = a[2 * b], hi = a[2 * b + 1];
         const y1 = h / 2 - hi / max * (h / 2 - 2), y2 = h / 2 - lo / max * (h / 2 - 2);

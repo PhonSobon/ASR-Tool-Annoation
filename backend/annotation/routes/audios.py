@@ -59,7 +59,7 @@ def save_state(audio_id):
     meta = access.audio(audio_id, "edit")
     if meta["task_id"]:
         task, user = tasks.read(meta["task_id"]), guard.current_user()
-        may_review = any(tasks.allowed(task, user, a) for a in ("inspect", "accept", "manage"))
+        may_review = any(tasks.allowed(task, user, a) for a in ("review", "manage"))
         audios.update_segments(audio_id, lambda old: review.merge_saved(old, segments, may_review, changed))
     else:
         audios.save_segments(audio_id, segments)

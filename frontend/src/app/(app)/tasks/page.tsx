@@ -1,6 +1,6 @@
 "use client";
-// My Tasks: one card per task the user may see, search, pagination, delete (managers); tasks a manager opened for
-// claiming are listed under "Available to claim" with a Claim button (the user joins the task in their role).
+// My Tasks: one card per task the user may see, search, pagination, delete (managers). A manager pushes a task to
+// the annotators (Push to annotators); they find it under "Available to pull" and join it with Pull dataset.
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
@@ -16,15 +16,14 @@ const PER_PAGE = 12;
 const SHOW: Record<string, { label: string; test: (t: TaskSummary) => boolean }> = {
   todo: { label: "Has packages to annotate", test: t => t.stages.annotating + t.stages.returned > 0 },
   returned: { label: "Has returned packages", test: t => t.stages.returned > 0 },
-  inspect: { label: "Waiting for inspection", test: t => t.stages.inspecting > 0 },
-  accept: { label: "Waiting for acceptance", test: t => t.stages.accepting > 0 },
+  review: { label: "Waiting for review", test: t => t.stages.inspecting > 0 },
   finished: { label: "Finished (everything accepted)",
-              test: t => t.stages.accepted > 0 && t.stages.annotating + t.stages.returned + t.stages.inspecting + t.stages.accepting === 0 },
+              test: t => t.stages.accepted > 0 && t.stages.annotating + t.stages.returned + t.stages.inspecting === 0 },
 };
 
 export default function TasksPage() {
   useCrumbs([["Workbench"], ["My Tasks"]]);
-  const { can } = useSession();
+  const { can, nameOf } = useSession();
   const { notify, askConfirm } = useNotify();
   const router = useRouter();
   const [tasks, setTasks] = useState<TaskSummary[] | null>(null);
@@ -32,7 +31,7 @@ export default function TasksPage() {
   const [q, setQ] = useState("");
   const [show, setShow] = useState("");
   const [page, setPage] = useState(1);
-  const [claiming, setClaiming] = useState("");
+  const [pulling, setPulling] = useState(""), [sharing, setSharing] = useState("");
 
   const load = useCallback(async () => {
     try { setTasks((await getJson<{ tasks: TaskSummary[] }>("/api/tasks")).tasks); setError(""); }
@@ -47,12 +46,25 @@ export default function TasksPage() {
   const pages = Math.max(1, Math.ceil(list.length / PER_PAGE)), cur = Math.min(page, pages);
   const shown = list.slice((cur - 1) * PER_PAGE, cur * PER_PAGE);
 
-  const claim = async (t: TaskSummary) => {
-    setClaiming(t.id);
-    try { await api(`/api/tasks/${t.id}/claim`); }
-    catch (e: any) { setClaiming(""); load(); return notify("Cannot claim: " + e.message, "error"); }
-    notify(`You joined “${t.name}”.`, "success");
+  const pull = async (t: TaskSummary) => {
+    setPulling(t.id);
+    try { await api(`/api/tasks/${t.id}/pull`); }
+    catch (e: any) { setPulling(""); load(); return notify("Cannot pull: " + e.message, "error"); }
+    notify(`You pulled “${t.name}” — it is in your tasks now.`, "success");
     router.push(`/tasks/${t.id}`);
+  };
+
+  const pushedTo = (t: TaskSummary) => !!t.open_roles?.includes("annotator");
+  const pullers = (t: TaskSummary) => (t.pulled || []).filter(p => p.role === "annotator");
+  const share = async (t: TaskSummary) => {
+    const on = !pushedTo(t);
+    setSharing(t.id);
+    try {
+      const r = await api<{ open_roles: string[] }>(`/api/tasks/${t.id}/share`, { annotator: on }, "PUT");
+      setTasks(ts => (ts || []).map(x => x.id === t.id ? { ...x, open_roles: r.open_roles } : x));
+      notify(on ? `“${t.name}” pushed: annotators can pull it now.` : `“${t.name}” taken back from annotators.`, "success");
+    } catch (e: any) { notify("Cannot push: " + e.message, "error"); }
+    finally { setSharing(""); }
   };
 
   const remove = async (t: TaskSummary) => {
@@ -67,13 +79,13 @@ export default function TasksPage() {
     <section>
       <div className="panel headcard">
         <h2>My Tasks</h2>
-        <p>Each task is a batch of audio pushed from Upload &amp; Crop. Annotators complete its packages, quality inspectors
-          pass or return them, and acceptors give the final acceptance.</p>
+        <p>Each task is a batch of audio pushed from Upload &amp; Crop. Annotators complete its packages and reviewers
+          accept them or return them with a note.</p>
       </div>
       {open.length > 0 && (
         <div className="panel">
-          <div className="toolbar"><b className="sec-title"><Icon name="inbox" /> Available to claim ({open.length})</b>
-            <span className="muted">Open tasks you are not in yet — claim one to start working on it.</span></div>
+          <div className="toolbar"><b className="sec-title"><Icon name="inbox" /> Available to pull ({open.length})</b>
+            <span className="muted">Datasets your manager pushed to you — pull one to start annotating it.</span></div>
           <div className="cards">
             {open.map(t => (
               <div className="task-card claim-card" key={t.id}>
@@ -84,11 +96,10 @@ export default function TasksPage() {
                   <div className="tc-desc">Created {t.created}{t.created_by ? ` by ${t.created_by}` : ""}</div>
                   <div className="stats">
                     <span className="pill">To annotate {t.stages.annotating + t.stages.returned}</span>
-                    <span className="pill">To inspect {t.stages.inspecting}</span>
-                    <span className="pill">To accept {t.stages.accepting}</span>
+                    <span className="pill">To review {t.stages.inspecting}</span>
                   </div>
-                  <button className="claim-btn" disabled={!!claiming} onClick={() => claim(t)}>
-                    <Icon name={claiming === t.id ? "loader" : "plus"} className={claiming === t.id ? "spin" : ""} /> Claim task</button>
+                  <button className="claim-btn" disabled={!!pulling} onClick={() => pull(t)}>
+                    <Icon name={pulling === t.id ? "loader" : "download"} className={pulling === t.id ? "spin" : ""} /> Pull dataset</button>
                 </div>
               </div>
             ))}
@@ -126,12 +137,25 @@ export default function TasksPage() {
                   <div className="tc-counts"><span>Done <b>{t.done}</b> of {t.done + t.todo}</span><span><b>{pct}%</b></span></div>
                   <div className="bar"><div style={{ width: `${pct}%` }} /></div>
                   <div className="stats">
-                    <span className="pill">To inspect {t.stages.inspecting}</span>
-                    <span className="pill">To accept {t.stages.accepting}</span>
+                    <span className="pill">To review {t.stages.inspecting}</span>
                     <span className="pill ok">Accepted {t.stages.accepted}</span>
                     {t.stages.returned > 0 && <span className="pill err">Returned {t.stages.returned}</span>}
                   </div>
                   <div className="tc-meta">Last saved {t.updated}</div>
+                  {t.access?.manage && (
+                    <div className="tc-share" onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
+                      {pullers(t).length > 0
+                        ? <span className="pill pulled" title={pullers(t).map(p => `${nameOf(p.username)} pulled it ${p.at}`).join(" · ")}>
+                            <Icon name="users" /> Pulled by {pullers(t).map(p => nameOf(p.username)).join(", ")}</span>
+                        : pushedTo(t) && <span className="pill ok"><Icon name="check" /> Pushed — waiting for a pull</span>}
+                      <button className={`small${pushedTo(t) ? " sec" : ""}`} disabled={sharing === t.id || (pushedTo(t) && pullers(t).length > 0)}
+                              onClick={() => share(t)}
+                              title={pullers(t).length ? "Someone already pulled this task — it cannot be taken back"
+                                     : pushedTo(t) ? "Annotators can no longer pull it"
+                                     : "Annotators see it under “Available to pull” and pull it themselves"}>
+                        <Icon name={sharing === t.id ? "loader" : pushedTo(t) ? "x" : "upload"} className={sharing === t.id ? "spin" : ""} />
+                        {pushedTo(t) ? " Take back" : " Push to annotators"}</button>
+                    </div>)}
                 </div>
               </div>
             );
@@ -140,8 +164,8 @@ export default function TasksPage() {
         {tasks && !list.length && (
           <div className="empty">{error || (q || show ? "No task matches these filters."
             : can("audio.upload") ? "No tasks yet — make one in “Load Data”: upload and cut audio, or load a Hugging Face dataset or a local folder."
-            : open.length ? "No task is assigned to you yet — claim one above, or ask your project manager."
-            : "No task is assigned to you yet — ask your project manager to add you to one.")}</div>
+            : open.length ? "No task is assigned to you yet — pull a dataset above, or ask your project manager."
+            : "No task is assigned to you yet — ask your project manager to push a dataset to annotators.")}</div>
         )}
         {list.length > PER_PAGE && <Pager page={cur} pages={pages} onPage={setPage} className="pager"
           label={`${(cur - 1) * PER_PAGE + 1}–${(cur - 1) * PER_PAGE + shown.length} of ${list.length}`} />}

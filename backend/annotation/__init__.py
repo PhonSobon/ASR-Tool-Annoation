@@ -1,1 +1,1 @@
-"""Annotation: Upload & Crop, tasks, packages and their review (inspection, acceptance)."""
+"""Annotation: Upload & Crop, tasks, packages and their review (one review step)."""

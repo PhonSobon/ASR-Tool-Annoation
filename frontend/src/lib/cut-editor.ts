@@ -369,14 +369,14 @@ export class CutEditor {
     this.segs.forEach((s, k) => {
       if (s.end < t0 || s.start > t1) return;
       const a = X(s.start), b = X(s.end);
-      g.fillStyle = s.deleted ? "rgba(220,38,38,.10)" : s === this.sel ? "rgba(37,99,235,.15)" : k % 2 ? "rgba(34,197,94,.10)" : "rgba(34,197,94,.20)";
+      g.fillStyle = s.deleted ? "rgba(220,38,38,.10)" : s === this.sel ? "rgba(37,99,235,.24)" : k % 2 ? "rgba(37,99,235,.06)" : "rgba(37,99,235,.13)";
       g.fillRect(a, top, b - a, WAVE_H);
       if (b - a > 24) { g.fillStyle = s === this.sel ? "#1d4ed8" : s.deleted ? "#b91c1c" : "#4b5563"; g.fillText(String(k + 1), Math.max(a, 0) + 5, top + 14); }
     });
 
     // waveform
     const amp = (WAVE_H / 2 - 4) / this.peakMax * this.gain, nb = peaks.length / 2, ox = this.x0();
-    g.fillStyle = "#5f8a6a";
+    g.fillStyle = "#64748b";
     for (let x = 0; x < w; x++) {
       const b0 = Math.floor((ox + x) / pps * this.peakRate);
       if (b0 >= nb) break;
@@ -405,8 +405,8 @@ export class CutEditor {
     // range being dragged for cropping
     if (this.dragRange) {
       const a = X(this.dragRange[0]), b = X(this.dragRange[1]);
-      g.fillStyle = "rgba(245,158,11,.25)"; g.fillRect(a, top, b - a, WAVE_H);
-      g.fillStyle = "#d97706"; g.fillRect(Math.round(a) - 1, top, 2, WAVE_H); g.fillRect(Math.round(b) - 1, top, 2, WAVE_H);
+      g.fillStyle = "rgba(30,58,138,.18)"; g.fillRect(a, top, b - a, WAVE_H);
+      g.fillStyle = "#1e3a8a"; g.fillRect(Math.round(a) - 1, top, 2, WAVE_H); g.fillRect(Math.round(b) - 1, top, 2, WAVE_H);
       g.font = "600 11px system-ui, sans-serif";
       const label = `Crop ${(this.dragRange[1] - this.dragRange[0]).toFixed(2)} s`;
       if (b - a > g.measureText(label).width + 10) g.fillText(label, a + 5, bot - 10);

@@ -1,5 +1,5 @@
 // Shapes of what the Flask API returns (see docs/api.md).
-export type Role = "admin" | "manager" | "annotator" | "inspector" | "acceptor" | "viewer";
+export type Role = "admin" | "manager" | "annotator" | "inspector";   // inspector = the reviewer
 
 export interface Me {
   username: string; name: string; role: Role; role_label: string; active: boolean;
@@ -38,8 +38,8 @@ export interface AudioSummary {
   segments?: Crop[];
 }
 
-export interface Members { annotator: string[]; inspector: string[]; acceptor: string[] }
-export interface TaskAccess { view: boolean; edit: boolean; inspect: boolean; accept: boolean; manage: boolean }
+export interface Members { annotator: string[]; inspector: string[] }   // inspector = the reviewers
+export interface TaskAccess { view: boolean; edit: boolean; review: boolean; manage: boolean }
 export interface LastPush { repo: string; split: string; url: string; at: string; pr: boolean }
 
 /** Load Data: a Hugging Face batch of rows or a local folder; each clip is one package with its text */
@@ -47,11 +47,13 @@ export interface TaskSource {
   kind: "hub" | "local"; state?: "loading" | "ready"; failed?: number; loaded?: number;
   repo?: string; config?: string; split?: string; start_row?: number; max_rows?: number | null;
 }
+export interface Pull { username: string; role: string; at: string }
 export interface TaskSummary {
   id: string; name: string; created: string; created_by: string; updated: string;
   members: Members; audio_count: number; duration: number; count: number; done: number; todo: number;
   stages: Record<string, number>; access: TaskAccess | null; last_push?: LastPush | null;
   open_roles?: string[]; can_claim?: boolean;   // roles that may claim the task; the user may claim it (not a member yet)
+  pulled?: Pull[];                               // who pulled it themselves (still members): it cannot be taken back from them
   source?: TaskSource | null;                    // Load Data: where the clips came from (null = pushed from Upload & cut)
 }
 export interface Task extends TaskSummary { audios: (AudioSummary & { segments: Crop[] })[] }

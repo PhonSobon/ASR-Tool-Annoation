@@ -13,28 +13,28 @@ This guide walks through both workflows of the Khmer Audio Annotation Tool step 
 
 ## Users and roles
 
-There is no sign-up: everyone signs in with an account the administrator made. The administrator comes from `ADMIN_USERNAME` (default `admin`) and `ADMIN_PASSWORD` in `.env`; it is created at start-up and its password can only be changed there (then restart). The administrator adds the other users under **Administration → Users & Roles** with a **default password**; managers, annotators, inspectors, acceptors and viewers must choose their own password the first time they sign in. **Administration → Activity & Status** shows every user's status (online, never signed in, still on the default password, deactivated), who worked today and who did not, and the full activity log. **Administration → Work Dashboard** shows what each user produced in a period (all time, today, 7 / 30 days or chosen dates): hours annotated, packages completed and in progress, how many times their packages were returned (errors) and how many were accepted, the reviews they made, and the dataset clips they accepted or rejected. Every password must be **8 to 12 characters** with an upper-case letter, a lower-case letter, a number and a special character (such as `! @ # $ %`), no spaces, and must not contain the user name.
+There is no sign-up: everyone signs in with an account the administrator made. The administrator comes from `ADMIN_USERNAME` (default `admin`) and `ADMIN_PASSWORD` in `.env`; it is created at start-up and its password can only be changed there (then restart). The administrator adds the other users under **Administration → Users & Roles** with a **default password**; managers, annotators, reviewers and viewers must choose their own password the first time they sign in. **Administration → Activity & Status** shows every user's status (online, never signed in, still on the default password, deactivated), who worked today and who did not, and the full activity log. **Administration → Work Dashboard** shows what each user produced in a period (all time, today, 7 / 30 days or chosen dates): hours annotated, packages completed and in progress, how many times their packages were returned (errors) and how many were accepted, the reviews they made, and the dataset clips they accepted or rejected. **Workbench → Dashboard** (administrators and project managers) shows where the whole project stands: how many tasks are waiting for a pull and how many were pulled, packages completed, waiting for inspection / acceptance (and how long the oldest one has waited), accepted and returned, the first-inspection pass rate and return rate, a daily chart (7 / 14 / 30 days), the tasks that need attention (pushed but not pulled, no save for 3 days, returned packages), the annotators free to pull, dataset cleaning totals and a table of every task. Click a card to filter the table, or a task to open it. Every password must be **8 to 12 characters** with an upper-case letter, a lower-case letter, a number and a special character (such as `! @ # $ %`), no spaces, and must not contain the user name.
 
 | Role | What it can do |
 |---|---|
 | **Administrator** | Everything, and manages users and roles |
-| **Project Manager** | Upload & Crop, make tasks, import Hugging Face datasets, assign people, export ZIPs, push to the Hub; can also annotate, inspect and accept |
+| **Project Manager** | Upload & Crop, make tasks, import Hugging Face datasets, assign people, export ZIPs, push to the Hub; can also annotate and review |
 | **Annotator** | Annotates the packages of the tasks they are a member of; reviews the clips of the datasets they are assigned to |
-| **Quality Inspector** | Checks completed packages: **passes** them or **returns** them to the annotator with a note; may fix the text |
-| **Acceptor** | Final acceptance of the packages that passed inspection (or returns them) |
-| **Viewer** | Sees every task and dataset, changes nothing |
+| **Reviewer** | Reviews completed packages: **accepts** them or **returns** them to the annotator with a note; may fix the text |
 
-Annotators, inspectors and acceptors see only the tasks and datasets a manager added them to (the **Members** button). Every package goes through:
+Annotators and reviewers see only the tasks and datasets a manager added them to (the **Members** button). Every package goes through one review:
 
 ```
-Todo (annotator) --Complete--> Inspection --Pass--> Acceptance --Accept--> Done
-        ^                          |                    |
-        +------ Return + note -----+--------------------+
+Todo (annotator) --Complete--> Review --Accept--> Done
+        ^                        |
+        +---- Return + note -----+
 ```
 
-Nobody can inspect or accept a package they annotated themselves (except the administrator). A package that passed inspection can no longer be changed by its annotator. When you push a task to the Hub you choose **accepted** packages, packages that **passed inspection**, or all **completed** ones.
+Nobody can review a package they annotated themselves (except the administrator). An accepted package can no longer be changed by its annotator. When you push a task to the Hub you choose **accepted** packages or all **completed** ones.
 
-Managers add people to a task or a dataset with the **Members** button on its page. In the same dialog, **Open for claiming** lets people pull work themselves: tick the roles (e.g. Annotators) that may claim the task, or allow reviewers to claim the dataset. Those users then see it under **Available to claim** in My Tasks / Dataset Cleaning and join it with **Claim task** / **Claim dataset**. Leave it unticked to assign people only. Use the avatar (top right) to change your password or log out.
+Inspection and acceptance used to be two separate steps with two roles (Quality Inspector, Acceptor). They are one review now: at start-up, users who had the Acceptor role become Reviewers (and are signed out once), task members listed as acceptors become reviewers, and a package that had passed the old inspection but was never accepted waits for the review again. Accepted packages and the review history are kept.
+
+Managers add people to a task or a dataset with the **Members** button on its page. Instead of assigning annotators one by one, a manager can press **Push to annotators** on the task card in My Tasks (or on the task page) once the data is loaded: every annotator then sees the task under **Available to pull** in My Tasks and joins it with **Pull dataset**. A pull is exclusive: the first annotator who pulls the task gets it, and it disappears from Available to pull for all other annotators (any number of users can share a role, e.g. 4 administrators and 10 annotators; push several tasks so each annotator can pull one). **Take back** works only until someone pulls it. Once an annotator has pulled the task, the card shows a purple **Pulled by …** status and Take back is disabled (remove that person in **Members** first if they really should stop). The Members dialog has the same switch per role (**Open for pulling**), and for datasets reviewers can be allowed to claim the dataset (**Claim dataset** in Dataset Cleaning). Use the avatar (top right) to change your password or log out.
 
 ---
 
@@ -89,7 +89,7 @@ Use this for speech that is already cut into clips with a transcript: a Hugging 
 with their labels. Open **Load Data** and choose **Hugging Face** or **Local folder**. The clips go straight into a new
 **task**: every clip is one package, named after its file, with its **text and normalized text already filled in**.
 There is nothing to recognize (the Recognize buttons are hidden for these packages): the annotator listens, fixes the
-text if needed and presses **✓ Complete**, then the package goes through inspection and acceptance like any other (see
+text if needed and presses **✓ Complete**, then the package goes to the review like any other (see
 [Annotate the packages](#3-annotate-the-packages)). Assign the people with **Members** on the task.
 
 ### Hugging Face

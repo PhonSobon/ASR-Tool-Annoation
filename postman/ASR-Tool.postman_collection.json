@@ -167,7 +167,7 @@
                 "users"
               ]
             },
-            "description": "Roles: admin, manager, annotator, inspector, acceptor, viewer. The password is a default the user must change.",
+            "description": "Roles: admin, manager, annotator, inspector (reviewer). The password is a default the user must change.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"username\": \"{{newUser}}\",\n  \"password\": \"Default@1234\",\n  \"role\": \"annotator\",\n  \"name\": \"New Annotator\"\n}",

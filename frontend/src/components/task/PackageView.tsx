@@ -1,7 +1,7 @@
 "use client";
 // One package of a task: the crop in the cut editor (cut it into dialogue segments), the Dialogue Segments table
 // (role, annotation text, normalized text, recognize), Role Information, Overall Audio Information and its review
-// (inspection / acceptance). In the editor, times are relative to the crop; they are stored in audio-file time.
+// (the review). In the editor, times are relative to the crop; they are stored in audio-file time.
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { CutEditorPanel } from "@/components/CutEditorPanel";
 import { Icon } from "@/components/Icon";
@@ -201,7 +201,7 @@ export function PackageView({ store, index, position, onStep, onBack, onAllDone 
     store.markDirty(c);
     if (!store.crops.some(x => inTab(x.seg, "todo"))) {
       await store.flush();
-      notify("Every package is completed — they wait for quality inspection now.", "success");
+      notify("Every package is completed — they wait for review now.", "success");
       return onAllDone();
     }
     onStep(1);
@@ -240,7 +240,7 @@ export function PackageView({ store, index, position, onStep, onBack, onAllDone 
   const completeBtn = editable && (
     <button className={"pkg-complete" + (st === "done" ? " sec" : "")} disabled={c.seg.deleted} onClick={complete}
             title={st === "done" ? "Move this package back to Todo to work on it again (its review starts over)"
-                                 : "You checked every segment: send this package to quality inspection and open the next one"}>
+                                 : "You checked every segment: send this package to review and open the next one"}>
       {st === "done" ? <><Icon name="restore" />Back to Todo</> : <><Icon name="check" />{c.seg.returned ? "Complete again" : "Complete"}</>}
     </button>);
 

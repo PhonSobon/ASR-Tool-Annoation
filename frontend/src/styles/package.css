@@ -6,7 +6,7 @@
 .pkg-id b { font-weight:600; overflow-wrap:anywhere; }
 #pkgWorkView { min-width:0; }
 .pkg-nav { display:inline-flex; align-items:center; gap:8px; font-variant-numeric:tabular-nums; }
-.pkg-nav button { height:var(--h-sm); padding:0 10px; background:#fff; color:var(--text-2); border:1px solid var(--border-2); }
+.pkg-nav button { height:var(--h-sm); padding:0 10px; background:var(--card); color:var(--text-2); border:1px solid var(--border-2); }
 
 .sec-title { display:inline-flex; align-items:center; gap:8px; font-size:var(--fs-lg); font-weight:600; color:var(--text); margin:0 10px 0 0; }
 .sec-title .i { color:var(--primary); }
@@ -21,9 +21,9 @@
 .seg-table td.num { font-variant-numeric:tabular-nums; text-align:center; }
 .seg-table tbody tr { cursor:pointer; }
 .seg-table tbody tr:hover td { background:var(--soft); }
-.seg-table tbody tr.selected td { background:#eff6ff; }
+.seg-table tbody tr.selected td { background:var(--primary-soft); }
 .seg-table tbody tr.selected td:first-child { box-shadow:inset 4px 0 0 var(--primary); }
-.seg-table tbody tr.running td { background:#fffbeb; }
+.seg-table tbody tr.running td { background:var(--run-soft); }
 .seg-table tbody tr.skipped td { opacity:.5; }
 .seg-table tbody tr.skipped textarea { text-decoration:line-through; }
 .seg-table td textarea { width:100%; resize:none; overflow:hidden; font-size:var(--tfs); line-height:1.75; min-height:2.6em; cursor:text; }
@@ -44,7 +44,7 @@ th.req::after { content:"*"; color:var(--err); margin-left:2px; }
 .radios { display:flex; gap:18px; padding:6px 0; font-weight:400; }
 .radios label { display:flex; align-items:center; gap:6px; cursor:pointer; }
 .chips { display:flex; flex-wrap:wrap; gap:6px; }
-.chip { height:var(--h-sm); background:#fff; color:var(--text-2); border:1px solid var(--border-2); border-radius:999px; padding:0 12px; font-size:var(--fs-xs); font-weight:500; }
+.chip { height:var(--h-sm); background:var(--card); color:var(--text-2); border:1px solid var(--border-2); border-radius:999px; padding:0 12px; font-size:var(--fs-xs); font-weight:500; }
 .chip:hover:not(:disabled) { background:var(--soft); border-color:var(--faint); }
 .chip.on, .chip.on:hover:not(:disabled) { background:var(--primary-soft); border-color:var(--primary); color:var(--primary); }
 

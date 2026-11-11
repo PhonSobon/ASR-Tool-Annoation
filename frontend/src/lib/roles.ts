@@ -8,9 +8,7 @@ export const ROLES: RoleInfo[] = [
   { id: "admin", label: "Administrator", summary: "Adds every account, sees every user's status and the full activity log." },
   { id: "manager", label: "Project Manager", summary: "Uploads audio, makes tasks, imports datasets, assigns people, exports." },
   { id: "annotator", label: "Annotator", summary: "Annotates the packages and dataset clips they are assigned to." },
-  { id: "inspector", label: "Quality Inspector", summary: "Checks completed packages: pass, fix the text, or return." },
-  { id: "acceptor", label: "Acceptor", summary: "Final acceptance of the packages that passed inspection." },
-  { id: "viewer", label: "Viewer", summary: "Sees every task and dataset, changes nothing." },
+  { id: "inspector", label: "Reviewer", summary: "Reviews completed packages: accept, fix the text, or return to the annotator." },
 ];
 
 export const ROLE_LABEL: Record<string, string> = Object.fromEntries(ROLES.map(r => [r.id, r.label]));

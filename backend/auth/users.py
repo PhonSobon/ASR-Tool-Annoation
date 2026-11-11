@@ -170,6 +170,20 @@ def touch(username, login=False):
                 user.last_login = user.last_seen
 
 
+OLD_ROLES = {"acceptor": "inspector",   # inspection and acceptance are one review step now
+             "viewer": "annotator"}     # the viewer role was removed; unassigned annotators see nothing
+
+
+def merge_old_roles():
+    """Users with a removed role get its replacement (OLD_ROLES). Runs at start-up; returns how many were changed."""
+    with db.transaction() as s:
+        rows = list(s.scalars(select(User).where(User.role.in_(OLD_ROLES))))
+        for u in rows:
+            u.role, u.updated = OLD_ROLES[u.role], now()
+            u.sv = (u.sv or 1) + 1                       # sign them out: their permissions changed
+    return len(rows)
+
+
 def ensure_admin(username, password):
     """The administrator of .env: made if missing; else kept an active admin with this password (only re-hashed when
     it changed, so a restart does not log them out)."""

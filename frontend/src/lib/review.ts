@@ -13,39 +13,39 @@ export function cropState(c: Crop): CropState {
   return parts.some(p => p.state === "error") ? "error" : "pending";
 }
 
-export type Stage = "annotating" | "returned" | "inspecting" | "accepting" | "accepted" | "skipped";
+/** one review step: annotating -> inspecting (waiting for review) -> accepted (or returned to the annotator) */
+export type Stage = "annotating" | "returned" | "inspecting" | "accepted" | "skipped";
 export function cropStage(c: Crop): Stage {
   const st = cropState(c);
   if (st === "skipped") return "skipped";
   if (st !== "done") return c.returned ? "returned" : "annotating";
   if (c.acceptance?.status === "accepted") return "accepted";
-  if (c.inspection?.status === "passed") return "accepting";
   return "inspecting";
 }
 
-export type Tab = "todo" | "inspect" | "accept" | "done";
-export const TABS: Tab[] = ["todo", "inspect", "accept", "done"];
-export const TAB_OF: Record<Stage, Tab> = { annotating: "todo", returned: "todo", inspecting: "inspect", accepting: "accept", accepted: "done", skipped: "done" };
-export const TAB_LABEL: Record<Tab, string> = { todo: "Todo", inspect: "Inspection", accept: "Acceptance", done: "Done" };
+export type Tab = "todo" | "review" | "done";
+export const TABS: Tab[] = ["todo", "review", "done"];
+export const TAB_OF: Record<Stage, Tab> = { annotating: "todo", returned: "todo", inspecting: "review", accepted: "done", skipped: "done" };
+export const TAB_LABEL: Record<Tab, string> = { todo: "Todo", review: "Review", done: "Done" };
 export const STATUS: Record<string, string> = {
   pending: "Pending", running: "Recognizing", error: "Error", review: "To check", done: "Completed", skipped: "Skipped",
-  returned: "Returned", inspecting: "Waiting for inspection", accepting: "Waiting for acceptance", accepted: "Accepted",
+  returned: "Returned", inspecting: "Waiting for review", accepted: "Accepted",
 };
 export const STAGE_TEXT: Record<Stage, string> = {
-  annotating: "Being annotated", returned: "Returned to the annotator", inspecting: "Waiting for quality inspection",
-  accepting: "Passed inspection — waiting for acceptance", accepted: "Accepted", skipped: "Skipped",
+  annotating: "Being annotated", returned: "Returned to the annotator", inspecting: "Waiting for review",
+  accepted: "Accepted", skipped: "Skipped",
 };
 export const inTab = (c: Crop, tab: Tab) => TAB_OF[cropStage(c)] === tab;
 /** what the Status column shows: annotator state in Todo, else the review stage */
 export const cropLabel = (c: Crop) => { const g = cropStage(c); return g === "annotating" ? cropState(c) : g; };
 
-export const mayReview = (a: TaskAccess | null | undefined) => !!a && (a.inspect || a.accept || a.manage);
-/** may the user change this package? (once it passed inspection only reviewers / managers may) */
+export const mayReview = (a: TaskAccess | null | undefined) => !!a && (a.review || a.manage);
+/** may the user change this package? (once it is accepted only reviewers / managers may) */
 export const cropEditable = (c: Crop, a: TaskAccess | null | undefined) =>
-  !!a?.edit && (mayReview(a) || !["accepting", "accepted"].includes(cropStage(c)));
+  !!a?.edit && (mayReview(a) || cropStage(c) !== "accepted");
 
-export const inspectorOf = (c: Crop) => c.inspection?.by || (c.returned?.stage === "inspection" ? c.returned.by : "");
-export const acceptorOf = (c: Crop) => c.acceptance?.by || (c.returned?.stage === "acceptance" ? c.returned.by : "");
+/** who reviewed the package: who accepted it, or who returned it (or who passed it before the one review step) */
+export const reviewerOf = (c: Crop) => c.acceptance?.by || c.returned?.by || c.inspection?.by || "";
 
 export const handTyped = (s: Seg) => !!s.text && s.text !== s.wordsText;   // never overwrite in a batch
 export const pkgName = (audioName: string, no: number) =>

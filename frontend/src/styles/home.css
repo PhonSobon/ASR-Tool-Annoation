@@ -1,108 +1,31 @@
-/* Home page (public) */
-.home { min-height:100vh; background:#fff; }
-.home .btn { display:inline-flex; align-items:center; gap:.45em; background:var(--primary); color:#fff; text-decoration:none;
-             font-weight:600; font-size:14px; padding:8px 16px; border-radius:8px; }
-.home .btn:hover { background:#1d4ed8; }
-.home .btn.lg { font-size:16px; padding:12px 24px; }
-
-.home-nav { position:sticky; top:0; z-index:10; display:flex; align-items:center; justify-content:space-between;
-            padding:14px max(24px, calc((100% - 1040px) / 2)); background:rgba(255,255,255,.9); backdrop-filter:blur(8px);
-            border-bottom:1px solid #f0f1f3; }
-.home-nav nav { display:flex; align-items:center; gap:28px; }
-.home-nav nav a:not(.btn) { color:#4b5563; text-decoration:none; font-size:14px; }
-.home-nav nav a:not(.btn):hover { color:var(--primary); }
-
-/* banner: the data-process picture (components/DataBackdrop.tsx) behind the heading */
-.home-banner { position:relative; overflow:hidden; background:#0b1b44; min-height:700px; display:flex; align-items:center; }
-@media (max-width:860px) {
-  .home-banner { min-height:0; }
-  .data-backdrop.in-hero :is(.bd-step, .bd-wave, .bd-label) { display:none; }
-}
-.home-banner::after { content:""; position:absolute; inset:0; pointer-events:none;
-                      background:radial-gradient(ellipse 46% 52% at 50% 50%, rgba(11,27,68,.92) 0, rgba(11,27,68,.6) 55%, rgba(11,27,68,0) 100%); }
-.data-backdrop.in-hero { position:absolute; }
-.home-hero { position:relative; z-index:1; max-width:760px; margin:0 auto; padding:96px 24px 88px; text-align:center; }
-.hero-tag { display:inline-block; font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:#bfdbfe;
-            background:rgba(59,130,246,.25); border:1px solid rgba(147,197,253,.35); border-radius:20px; padding:5px 14px; }
-.home-hero h1 { font:700 48px/1.12 Georgia,"Times New Roman",serif; margin:20px 0 18px; letter-spacing:-.01em; color:#fff; }
-.home-hero p { font-size:18px; line-height:1.65; color:#cbd5e1; margin:0 auto 32px; max-width:620px; }
-.hero-cta { display:flex; justify-content:center; }
-.home-hero .btn.lg { background:#3b82f6; box-shadow:0 10px 30px rgba(37,99,235,.45); }
-.home-hero .btn.lg:hover { background:#2563eb; }
-.home-hero p.hero-note { font-size:13px; color:#93c5fd; margin:22px auto 0; max-width:480px; }
-.home-hero p.hero-note b { color:#fff; }
-.home-banner + .home-sec { border-top:0; }
-
-.home-sec { max-width:1040px; margin:0 auto; padding:56px 24px; border-top:1px solid #f0f1f3; }
-.home-sec h2 { font:700 28px Georgia,"Times New Roman",serif; margin:0 0 8px; text-align:center; }
-.home-steps { list-style:none; padding:0; margin:28px 0 0; display:grid; grid-template-columns:repeat(5, 1fr); gap:24px; }
-.home-steps li { text-align:center; }
-.home-steps b { display:block; margin:14px 0 4px; font-size:15px; }
-.home-steps p { margin:0; font-size:13px; line-height:1.5; color:var(--muted); }
-.step-ico { display:inline-grid; place-items:center; width:52px; height:52px; border-radius:14px; background:#eff6ff; color:var(--primary); }
-.step-ico .i { width:24px; height:24px; }
-.home-also { display:flex; gap:10px; justify-content:center; align-items:center; margin:40px auto 0; max-width:720px;
-             font-size:14px; color:#4b5563; background:#f8fafc; border-radius:10px; padding:14px 18px; }
-.home-also .i { color:var(--primary); }
-
-.home-foot { max-width:1040px; margin:0 auto; padding:24px; display:flex; justify-content:space-between; font-size:13px;
-             color:var(--muted); border-top:1px solid #f0f1f3; }
-.home-foot a { color:var(--primary); text-decoration:none; }
-
-@media (max-width:860px) {
-  .home-hero { padding:56px 20px 48px; }
-  .home-hero h1 { font-size:34px; }
-  .home-steps { grid-template-columns:1fr 1fr; }
-  .home-nav nav a:not(.btn) { display:none; }
-}
+/* Shared pieces that used to live with the home page: the theme switch, the role list (Users & Roles) and the
+   account menu. */
+/* Light / System / Dark switch (components/theme.tsx) - sign-in pages and the app's top bar */
+.theme-switch { display:inline-flex; align-items:center; gap:2px; padding:3px; border-radius:999px; background:var(--hover); border:1px solid var(--border); }
+.theme-switch button { height:28px; min-width:28px; padding:0 7px; border-radius:999px; background:transparent; color:var(--muted); border:0; gap:6px;
+                       font-size:var(--fs-xs); }
+.theme-switch button:hover:not(:disabled) { background:transparent; color:var(--text); }
+.theme-switch button.on, .theme-switch button.on:hover:not(:disabled) { background:var(--card); color:var(--text); box-shadow:var(--shadow), 0 0 0 1px var(--border); }
+.theme-switch .i { width:15px; height:15px; }
+.theme-switch.with-labels button { padding:0 10px; }
 
 /* Role list (home page, Users & Roles) */
-.role-list { list-style:none; margin:0; padding:0; border:1px solid var(--border); border-radius:12px; background:#fff; overflow:hidden; }
+.role-list { list-style:none; margin:0; padding:0; border:1px solid var(--border); border-radius:12px; background:var(--card); overflow:hidden; }
 .role-list li { display:flex; gap:14px; padding:16px 20px; }
-.role-list li + li { border-top:1px solid #f0f1f3; }
-.role-list li.on { background:#f8fbff; }
+.role-list li + li { border-top:1px solid var(--border); }
+.role-list li.on { background:var(--primary-soft); }
 .role-mark { width:10px; height:10px; border-radius:50%; margin-top:6px; flex:none; background:#94a3b8; }
 .role-body { flex:1; min-width:0; }
 .role-body b { display:flex; align-items:center; gap:8px; font-size:15px; }
-.role-body p { margin:3px 0 0; font-size:14px; color:#4b5563; }
-.role-you { font-size:11px; font-weight:600; color:var(--primary); background:#dbeafe; border-radius:10px; padding:1px 8px; }
+.role-body p { margin:3px 0 0; font-size:14px; color:var(--text-2); }
+.role-you { font-size:11px; font-weight:600; color:var(--primary-text); background:var(--primary-soft); border-radius:10px; padding:1px 8px; }
 .role-perms { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
-.role-perms span { font-size:12px; background:#f3f4f6; color:#374151; border-radius:6px; padding:2px 8px; }
-.r-admin .role-mark { background:#dc2626; } .r-manager .role-mark { background:#2563eb; } .r-annotator .role-mark { background:#16a34a; }
-.r-inspector .role-mark { background:#d97706; } .r-acceptor .role-mark { background:#7c3aed; } .r-viewer .role-mark { background:#64748b; }
-
-/* Sign in / choose password */
-body.login-page { background:linear-gradient(180deg, #eff6ff 0, #f5f6f8 60%); }
-.login-brand { color:var(--text); text-decoration:none; }
-.back-home { color:var(--primary); text-decoration:none; align-self:flex-start; }
-.login-card button.link { align-self:center; font-size:13px; }
-
-/* Sign-in background: the data process (components/DataBackdrop.tsx) */
-body.login-page:has(.data-backdrop) { background:#0b1b44; }
-.data-backdrop { position:fixed; inset:0; z-index:0; }
-.data-backdrop svg { width:100%; height:100%; display:block; }
-.data-backdrop + .login-card { position:relative; z-index:1; box-shadow:0 24px 60px rgba(2,6,23,.45); border-color:transparent; }
-.bd-box { fill:rgba(255,255,255,.07); stroke:rgba(147,197,253,.35); stroke-width:1.5; }
-.bd-slot { fill:rgba(147,197,253,.3); }
-.bd-led { fill:#4ade80; } .bd-led.b { fill:#60a5fa; } .bd-led.c { fill:#facc15; }
-.bd-led { animation:bd-blink 2.4s ease-in-out infinite; } .bd-led.b { animation-delay:.8s; } .bd-led.c { animation-delay:1.6s; }
-.bd-wave { fill:#60a5fa; opacity:.55; }
-.bd-flow { fill:none; stroke:#60a5fa; stroke-width:2; stroke-dasharray:4 12; stroke-linecap:round; opacity:.6;
-           animation:bd-flow 1.6s linear infinite; }
-.bd-step rect { fill:rgba(37,99,235,.35); stroke:rgba(147,197,253,.6); stroke-width:1.5; }
-.bd-step text { fill:#dbeafe; font:600 15px "Noto Sans Khmer",system-ui,sans-serif; text-anchor:middle; }
-.bd-label { fill:rgba(191,219,254,.6); font:600 12px "Noto Sans Khmer",system-ui,sans-serif; letter-spacing:.12em; }
-.bd-db path, .bd-db ellipse { fill:rgba(255,255,255,.07); stroke:rgba(147,197,253,.45); stroke-width:1.5; }
-.bd-fold { fill:none; stroke:rgba(147,197,253,.35); stroke-width:1.5; }
-.bd-file { fill:#bfdbfe; font:700 16px "Noto Sans Khmer",system-ui,sans-serif; text-anchor:middle; }
-.bd-rows rect { fill:rgba(147,197,253,.22); }
-.bd-rows rect.ok { fill:rgba(74,222,128,.5); }
-@keyframes bd-flow { to { stroke-dashoffset:-32; } }
-@keyframes bd-blink { 50% { opacity:.35; } }
-@media (prefers-reduced-motion:reduce) { .bd-flow, .bd-led { animation:none; } }
+.role-perms span { font-size:12px; background:var(--hover); color:var(--text-2); border-radius:6px; padding:2px 8px; }
+.r-admin .role-mark { background:#1e3a8a; } .r-manager .role-mark { background:#2563eb; } .r-annotator .role-mark { background:#60a5fa; }
+.r-inspector .role-mark { background:#64748b; } .r-acceptor .role-mark { background:#1e40af; }
 
 /* Account menu */
-.me-role { padding:8px 10px; border-bottom:1px solid var(--border); margin-bottom:4px; font-size:12px; color:#4b5563; }
+.me-role { padding:8px 10px; border-bottom:1px solid var(--border); margin-bottom:4px; font-size:12px; color:var(--text-2); }
 .me-role b { display:block; font-size:12px; color:var(--text); margin-bottom:2px; }
 .me-note { padding:8px 10px; font-size:12px; }
 a.me-item { display:block; text-decoration:none; font-size:inherit; }

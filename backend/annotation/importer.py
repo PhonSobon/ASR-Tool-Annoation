@@ -1,6 +1,6 @@
 """Load Data: speech that already has its text - a Hugging Face dataset or a local folder of audio + labels - goes
 straight into a new task. Every clip becomes one audio of the task with one package (crop) whose text is filled in,
-so the annotator only checks it (no speech recognition needed) and the package goes through inspection and acceptance
+so the annotator only checks it (no speech recognition needed) and the package goes through the review
 like any other.
 
 The task remembers where its clips came from (tasks.source):

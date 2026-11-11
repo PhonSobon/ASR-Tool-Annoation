@@ -137,12 +137,12 @@ export default function WorkPage() {
           <table className="pkg-table act-table work-table">
             <thead>
               <tr className="groups"><th colSpan={2} /><th colSpan={6}>Annotation (own packages)</th>
-                <th colSpan={3}>Reviews made</th><th colSpan={3}>Dataset cleaning</th></tr>
+                <th colSpan={2}>Reviews made</th><th colSpan={3}>Dataset cleaning</th></tr>
               <tr><th>User</th><th>Role</th>
                 <th className="num">Hours</th><th className="num">Done</th><th className="num">In progress</th>
-                <th className="num" title="Times their packages were returned by an inspector or acceptor">Returned</th>
+                <th className="num" title="Times a reviewer returned one of their packages">Returned</th>
                 <th className="num">Accepted</th><th className="num">Accepted hours</th>
-                <th className="num">Passed</th><th className="num">Accepted</th><th className="num">Returned</th>
+                <th className="num">Accepted</th><th className="num">Returned</th>
                 <th className="num">Accepted</th><th className="num">Rejected</th><th className="num">Hours</th></tr>
             </thead>
             <tbody>
@@ -159,8 +159,7 @@ export default function WorkPage() {
                       {rate !== null && a.returned > 0 && <div className="pkg-sub">{rate}% of done</div>}</td>
                     <td className="num ok">{a.accepted}</td>
                     <td className="num">{hours(a.accepted_seconds)}</td>
-                    <td className="num">{r.inspected}</td>
-                    <td className="num">{r.accepted}</td>
+                    <td className="num">{r.accepted + r.inspected}</td>
                     <td className="num">{r.returned}</td>
                     <td className="num">{c.accepted}</td>
                     <td className={`num${c.rejected ? " bad" : ""}`}>{c.rejected}</td>
@@ -168,13 +167,13 @@ export default function WorkPage() {
                   </tr>
                 );
               })}
-              {!users.length && <tr><td colSpan={14} className="empty">No user matches.</td></tr>}
+              {!users.length && <tr><td colSpan={13} className="empty">No user matches.</td></tr>}
             </tbody>
           </table>
         </div>
         <p className="muted work-note">Done = packages the user annotated and completed (counted on their last edit).
-          Returned = times an inspector or acceptor sent one of their packages back. Accepted = their packages that
-          passed final acceptance. Hours are speech time of the packages (deleted segments left out).</p>
+          Returned = times a reviewer sent one of their packages back. Accepted = their packages that
+          the reviewer accepted. Hours are speech time of the packages (deleted segments left out).</p>
       </div>
     </section>
   );

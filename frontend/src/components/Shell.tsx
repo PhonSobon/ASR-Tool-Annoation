@@ -12,10 +12,12 @@ import { PasswordRules } from "./PasswordRules";
 import type { IconName } from "./icon-sprite";
 import { useNotify } from "./notify";
 import { useSession } from "./session";
+import { ThemeSwitch } from "./theme";
 
 const MENU: { head: string; icon: IconName; perm?: string; items: { href: string; label: string; perm?: string }[] }[] = [
   { head: "Data", icon: "database", perm: "audio.upload", items: [{ href: "/upload", label: "Load Data" }] },
-  { head: "Workbench", icon: "dashboard", items: [{ href: "/tasks", label: "My Tasks" }] },
+  { head: "Workbench", icon: "dashboard", items: [{ href: "/dashboard", label: "Dashboard", perm: "task.manage" },
+                                                  { href: "/tasks", label: "My Tasks" }] },
   { head: "Administration", icon: "users", perm: "users.manage",
     items: [{ href: "/users", label: "Users & Roles" }, { href: "/activity", label: "Activity & Status" },
             { href: "/work", label: "Work Dashboard" }] },
@@ -31,6 +33,12 @@ export function Shell({ children }: { children: ReactNode }) {
 
   useEffect(() => { document.body.classList.toggle("side-hidden", side === "hidden"); document.body.classList.toggle("side-open", side === "open"); }, [side]);
   useEffect(() => { setSide(s => s === "open" ? "" : s); }, [path]);
+  useEffect(() => {                                            // phones: Esc closes the open menu
+    if (side !== "open") return;
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setSide(""); };
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [side]);
   useEffect(() => {
     if (!menu) return;
     const close = (e: MouseEvent) => { if (!(e.target as Element).closest(".me")) setMenu(false); };
@@ -42,12 +50,13 @@ export function Shell({ children }: { children: ReactNode }) {
     window.dispatchEvent(new Event("app:flush"));     // pages save what is still pending
     await new Promise(r => setTimeout(r, 300));
     await api("/api/auth/logout").catch(() => {});
-    location.href = "/";
+    location.href = "/login";
   };
 
   return (
     <>
       <div className="layout">
+        {side === "open" && <div className="side-backdrop" aria-hidden="true" onClick={() => setSide("")} />}
         <nav className="sidebar" aria-label="Main menu">
           <Link className="brand" href="/tasks">
             <Logo />
@@ -59,7 +68,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 const n = new Set(c); n.has(g.head) ? n.delete(g.head) : n.add(g.head); return n; })}>
                 <Icon name={g.icon} /> {g.head} <span className="caret"><Icon name="chevron-up" /></span>
               </button>
-              {g.items.map(it => (
+              {g.items.filter(it => !it.perm || can(it.perm)).map(it => (
                 <Link key={it.href} className={`nav-item${path === it.href || path.startsWith(it.href + "/") ? " on" : ""}`} href={it.href}>{it.label}</Link>
               ))}
             </div>
@@ -85,6 +94,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <span className={`save-state${save.kind === "err" ? " err" : ""}`}>
               {save.text && save.kind === "ok" && <Icon name="check" />}{save.text && save.kind === "err" && <Icon name="alert" />}{save.text}
             </span>
+            <ThemeSwitch className="bar-theme" />
             <div className="me">
               <button className="avatar" type="button" aria-haspopup="menu" aria-label="Your account" title={`${me.name} (${me.role_label})`}
                       onClick={() => setMenu(m => !m)}>{(me.name || me.username).trim()[0].toUpperCase()}</button>
@@ -95,6 +105,7 @@ export function Shell({ children }: { children: ReactNode }) {
                   {me.role === "admin"
                     ? <div className="me-note muted">Your password is set by the system (.env) and cannot be changed here.</div>
                     : <button type="button" className="me-item" role="menuitem" onClick={() => { setMenu(false); setPw(true); }}>Change password</button>}
+                  <div className="me-theme"><span>Theme</span><ThemeSwitch labels /></div>
                   <Link className="me-item" role="menuitem" href="/" onClick={() => setMenu(false)}>Home page</Link>
                   <button type="button" className="me-item" role="menuitem" onClick={logout}>Sign out</button>
                 </div>

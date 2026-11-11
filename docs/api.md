@@ -18,7 +18,7 @@ Every call except `/api/auth/*` needs a login: `POST /api/auth/login` sets a ses
 | GET | `/api/activity` | Activity log `?username=&role=&action=&since=&until=&q=&page=&per=` -> `{entries, total, page, pages}` (admin) |
 | GET | `/api/activity/overview` | Every user's status and work counts today / 7 days (admin) |
 | GET | `/api/activity/report` | Excel report of everyone `?period=week\|month&date=YYYY-MM-DD` (a day in that week / month; a week is Monday–Sunday) or `?period=custom&since=&until=` → `activity_<since>_to_<until>.xlsx` with the sheets Summary, Users, Daily and Activity log (admin) |
-| GET | `/api/activity/work` | Work Dashboard `?since=&until=` (YYYY-MM-DD) -> per user: `annotation {done, done_seconds, in_progress, returned, accepted, accepted_seconds, passed}`, `review {inspected, accepted, returned}`, `cleaning {accepted, rejected, accepted_seconds}`, and `totals` (admin) |
+| GET | `/api/activity/work` | Work Dashboard `?since=&until=` (YYYY-MM-DD) -> per user: `annotation {done, done_seconds, in_progress, returned, accepted, accepted_seconds, passed}`, `review {inspected, accepted, returned}` (`inspected`: passes from before the one review step), `cleaning {accepted, rejected, accepted_seconds}`, and `totals` (admin) |
 | GET | `/api/users/directory` | Active users for the members dialogs (managers) |
 
 ## Audio and tasks (workflow 1)
@@ -37,11 +37,11 @@ Every call except `/api/auth/*` needs a login: `POST /api/auth/login` sets a ses
 | GET | `/api/tasks` | Tasks you may see (My Tasks), with review counts (`stages`) and your `access` |
 | POST | `/api/tasks` | Push audio into a new task `{name, audio_ids, members?}` |
 | GET / DELETE | `/api/tasks/<id>` | Open a task with its audio and their crops / delete it (and its audio) |
-| PUT | `/api/tasks/<id>/members` | `{annotator: [...], inspector: [...], acceptor: [...], open_roles?: ["annotator", ...]}` → `{members, open_roles}` (`open_roles`: the roles whose users may claim the task themselves) |
+| PUT | `/api/tasks/<id>/members` | `{annotator: [...], inspector: [...] (the reviewers), open_roles?: ["annotator", ...]}` → `{members, open_roles}` (`open_roles`: the roles whose users may claim the task themselves) |
 | POST | `/api/tasks/<id>/claim` | The logged-in user joins a task open to their role → `{members}` (`GET /api/tasks` lists such tasks with `can_claim: true`) |
-| POST | `/api/tasks/<id>/review` | Review a package `{audio_id, index, step: "inspection" \| "acceptance", decision: "pass" \| "accept" \| "return", note?}` |
+| POST | `/api/tasks/<id>/review` | Review a package (one step) `{audio_id, index, decision: "accept" \| "return", note?}`; a return needs a note |
 | GET | `/api/tasks/<id>/export` | Download the whole task as one ZIP |
-| POST | `/api/tasks/<id>/hub-push` | Push the task to a Hub repo `{repo_id, split?, include?: "accepted" \| "passed" \| "done" \| "with_text", private?, create_pr?, token?}` (job) |
+| POST | `/api/tasks/<id>/hub-push` | Push the task to a Hub repo `{repo_id, split?, include?: "accepted" \| "done" \| "with_text", private?, create_pr?, token?}` (job) |
 | POST | `/api/tasks/load/hub` | Load Data from a Hub split into tasks `{repo, config, split, audio_column, text_column, rows?, start_row?, max_rows?, batches?, name?, token?, members?}` → `{tasks: [...], warning?}`: one task per batch of rows, loaded in the background (job); every clip is one package with its text filled in |
 | POST | `/api/tasks/load/local` | Start a task for a local folder `{name, members?}` → the task (`source: {kind: "local", state: "loading"}`) |
 | POST | `/api/tasks/<id>/files` | Add clips to that task. Multipart: `audio` (files), `texts` (JSON list, one label per file), `names` (JSON list, the path in the folder) → `{added, skipped, failed: [{file, error}], count}`; files already there are skipped |

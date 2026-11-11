@@ -6,7 +6,7 @@ import { ROLE_LABEL, useSession } from "./session";
 
 export interface MemberGroup { key: string; label: string; roles: string[] }
 /** "Open for claiming": the options ticked are saved as `open` (e.g. ["annotator"]) */
-export interface ClaimOption { text: string; options: { key: string; label: string }[]; current: string[] }
+export interface ClaimOption { text: string; legend?: string; options: { key: string; label: string }[]; current: string[] }
 
 export function MembersDialog({ title, text, groups, current, claim, onSave, onClose }: {
   title: string; text: string; groups: MemberGroup[]; current: Record<string, string[] | undefined>; claim?: ClaimOption;
@@ -30,7 +30,7 @@ export function MembersDialog({ title, text, groups, current, claim, onSave, onC
       <div className="mem-groups">
         {claim && (
           <fieldset className="mem-group mem-claim">
-            <legend>Open for claiming</legend>
+            <legend>{claim.legend || "Open for claiming"}</legend>
             <p className="muted">{claim.text}</p>
             {claim.options.map(o => (
               <label key={o.key}>

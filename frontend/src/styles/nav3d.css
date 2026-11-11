@@ -1,0 +1,70 @@
+/* Home page navbar in 3D: a floating glass slab with a visible edge, links as raised keys in a sunken track (the
+   section on screen is pressed in), the logo on a raised tile. Overrides the flat navbar of landing.css. */
+.lp-nav { --slab:color-mix(in srgb, var(--border-2) 85%, var(--primary) 15%);
+          position:sticky; top:12px; margin:12px var(--pad) 0; border-radius:20px; border:1px solid var(--border);
+          background:color-mix(in srgb, var(--card) 80%, transparent);
+          backdrop-filter:saturate(1.7) blur(16px); -webkit-backdrop-filter:saturate(1.7) blur(16px);
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.7),                 /* lit top edge */
+                     0 5px 0 -1px var(--slab),                            /* the slab's thickness */
+                     0 22px 40px -18px rgba(15,23,42,.35),                /* drop shadow */
+                     0 0 0 1px color-mix(in srgb, var(--primary) 6%, transparent);
+          transform:perspective(1400px) rotateX(2deg); transform-origin:50% 0;
+          transition:box-shadow .3s, transform .3s, background .3s; }
+:root[data-theme="dark"] .lp-nav { --slab:color-mix(in srgb, #020617 70%, var(--primary) 30%);
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 5px 0 -1px var(--slab), 0 24px 44px -16px rgba(0,0,0,.8),
+                     0 0 0 1px color-mix(in srgb, var(--primary) 16%, transparent); }
+.lp-nav.solid { border-bottom-color:var(--border); background:color-mix(in srgb, var(--card) 90%, transparent); transform:none;
+                box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 4px 0 -1px var(--slab), 0 26px 46px -20px rgba(15,23,42,.45),
+                           0 0 0 1px color-mix(in srgb, var(--primary) 8%, transparent); }
+:root[data-theme="dark"] .lp-nav.solid { box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 4px 0 -1px var(--slab),
+                                         0 26px 46px -16px rgba(0,0,0,.85), 0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent); }
+.lp-nav-in { height:64px; padding:0 12px 0 14px; gap:16px; }
+.lp-hero { margin-top:-88px; }                                       /* the hero still starts under the floating bar */
+.lp-sec { scroll-margin-top:96px; }
+
+/* the logo on a raised tile */
+.lp-logo3d { display:grid; place-items:center; width:40px; height:40px; flex:none; border-radius:12px; background:var(--card);
+             border:1px solid var(--border);
+             box-shadow:inset 0 1px 0 rgba(255,255,255,.8), 0 3px 0 var(--slab), 0 8px 14px -6px rgba(15,23,42,.3);
+             transition:transform .2s; }
+.lp-brand:hover .lp-logo3d { transform:translateY(-2px) rotate(-6deg); }
+.lp-logo3d svg { width:26px; height:26px; }
+
+/* the links: raised keys in a sunken track; the current section is pressed in */
+.lp-links, .lp-nav.solid .lp-links { gap:4px; padding:5px; border-radius:14px; background:var(--soft); border:1px solid var(--border);
+            box-shadow:inset 0 2px 4px rgba(15,23,42,.08), inset 0 -1px 0 rgba(255,255,255,.6); }
+:root[data-theme="dark"] :is(.lp-links, .lp-nav.solid .lp-links) { box-shadow:inset 0 2px 6px rgba(0,0,0,.5), inset 0 -1px 0 rgba(255,255,255,.04); }
+.lp-links a { padding:7px 14px; border-radius:10px; color:var(--text-2); background:transparent; border:1px solid transparent;
+              transition:transform .15s, box-shadow .15s, background .15s, color .15s; }
+.lp-links a:hover { color:var(--text); background:var(--card); border-color:var(--border); transform:translateY(-2px);
+                    box-shadow:0 3px 0 var(--border-2), 0 8px 14px -8px rgba(15,23,42,.35); }
+.lp-links a.on, .lp-links a.on:hover { color:#fff; border-color:transparent; transform:translateY(1px);
+              background:linear-gradient(180deg, color-mix(in srgb, var(--primary) 82%, #fff), var(--primary) 60%, color-mix(in srgb, var(--primary) 70%, var(--violet)));
+              box-shadow:inset 0 2px 3px rgba(0,0,0,.22), inset 0 -1px 0 rgba(255,255,255,.25), 0 1px 0 color-mix(in srgb, var(--primary) 55%, #000); }
+.lp-links a:active { transform:translateY(2px); box-shadow:inset 0 2px 4px rgba(0,0,0,.15); }
+
+/* the theme switch and the menu button as keys too */
+.lp-nav .theme-switch { background:var(--soft); box-shadow:inset 0 2px 4px rgba(15,23,42,.08); }
+:root[data-theme="dark"] .lp-nav .theme-switch { box-shadow:inset 0 2px 6px rgba(0,0,0,.5); }
+.lp-nav .theme-switch button.on, .lp-nav .theme-switch button.on:hover:not(:disabled) {
+              box-shadow:0 2px 0 var(--border-2), 0 6px 10px -6px rgba(15,23,42,.4), 0 0 0 1px var(--border); transform:translateY(-1px); }
+.lp-burger { border-radius:12px; box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 3px 0 var(--border-2), 0 8px 14px -8px rgba(15,23,42,.35);
+             transition:transform .1s, box-shadow .1s; }
+.lp-burger:active:not(:disabled) { transform:translateY(2px); box-shadow:0 1px 0 var(--border-2); }
+.lp-nav .lp-btn { height:42px; border-radius:12px; }
+
+/* phones: the menu unfolds downward in 3D */
+@media (max-width:900px) {
+  .lp-nav { top:8px; margin:8px 8px 0; border-radius:18px; transform:none; }
+  .lp-nav-in { height:58px; padding:0 8px 0 10px; }
+  .lp-hero { margin-top:-74px; }
+  .lp-sheet { margin:0 8px 10px; padding:6px 10px 12px; border-radius:14px; border:1px solid var(--border); background:var(--card);
+              box-shadow:inset 0 2px 4px rgba(15,23,42,.06); transform-origin:50% 0; animation:nav-unfold .35s cubic-bezier(.2,.8,.2,1) both; }
+  .lp-sheet > a:not(.lp-btn):last-of-type { border-bottom:0; }
+  .lp-sheet > .lp-btn { margin-top:6px; }
+}
+@keyframes nav-unfold { from { opacity:0; transform:perspective(900px) rotateX(-28deg) translateY(-8px); } }
+@media (prefers-reduced-motion:reduce) {
+  .lp-nav, .lp-links a, .lp-logo3d, .lp-burger { transition:none; }
+  .lp-sheet { animation:none; }
+}

@@ -12,6 +12,13 @@
 @import "../styles/notify.css";
 @import "../styles/login.css";
 @import "../styles/home.css";
+@import "../styles/landing.css";
+@import "../styles/hero.css";
+@import "../styles/nav3d.css";
 @import "../styles/activity.css";
+@import "../styles/dashboard.css";
+@import "../styles/timeline.css";
+@import "../styles/teamwork.css";
+@import "../styles/responsive.css";
 
 .boot { padding: 40px; text-align: center; }

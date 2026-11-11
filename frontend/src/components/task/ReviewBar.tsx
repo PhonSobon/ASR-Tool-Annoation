@@ -1,7 +1,7 @@
 "use client";
-// Review of the open package: where it is (annotating -> inspection -> acceptance -> accepted), the note of a
-// return, and the buttons of the inspector (Pass / Return) and the acceptor (Accept / Return).
-// POST /api/tasks/<id>/review; the server checks the role, the step and that nobody reviews their own package.
+// Review of the open package (one review step): where it is (annotating -> waiting for review -> accepted), the note
+// of a return, and the reviewer's buttons (Accept / Return to annotator).
+// POST /api/tasks/<id>/review {decision}; the server checks the role, the stage and that nobody reviews their own package.
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { useNotify } from "@/components/notify";
@@ -15,22 +15,21 @@ export function ReviewBar({ store, pkg, onDone, flush }: { store: TaskStore; pkg
   const { notify } = useNotify();
   const [returning, setReturning] = useState(false);
   const s = pkg.seg, g = cropStage(s), a = store.access, own = s.annotator === me.username && me.role !== "admin";
-  const inspect = g === "inspecting" && !!a?.inspect && !own, accept = g === "accepting" && !!a?.accept && !own;
-  const step = inspect ? "inspection" : "acceptance";
+  const canReview = g === "inspecting" && !!a?.review;
+  const review = canReview && !own;
 
-  const who = [s.annotator && `annotated by ${s.annotator}`, s.inspection && `inspected by ${s.inspection.by} (${s.inspection.at})`,
-               s.acceptance && `accepted by ${s.acceptance.by} (${s.acceptance.at})`].filter(Boolean).join(" · ")
-            + ((g === "inspecting" && a?.inspect || g === "accepting" && a?.accept) && own ? " · you annotated it, so another person has to check it" : "");
-  const note = g === "returned" ? s.returned : (s.inspection?.note ? { ...s.inspection, stage: "inspection" } : null);
+  const who = [s.annotator && `annotated by ${s.annotator}`, s.acceptance && `accepted by ${s.acceptance.by} (${s.acceptance.at})`]
+    .filter(Boolean).join(" · ") + (canReview && own ? " · you annotated it, so another person has to review it" : "");
+  const note = g === "returned" ? s.returned : null;
 
-  const decide = async (decision: "pass" | "accept" | "return", text = "") => {
-    await flush();                        // an inspector's text fixes are saved before the decision
+  const decide = async (decision: "accept" | "return", text = "") => {
+    await flush();                        // a reviewer's text fixes are saved before the decision
     try {
       const { crop } = await api(`/api/tasks/${store.task.id}/review`, { audio_id: pkg.audio.id,
-        index: pkg.audio.segments.indexOf(pkg.seg), step, decision, note: text });
+        index: pkg.audio.segments.indexOf(pkg.seg), decision, note: text });
       for (const k of ["completed", "inspection", "acceptance", "returned", "history"]) pkg.seg[k] = crop[k] ?? null;
     } catch (e: any) { return notify("Not saved: " + e.message, "error"); }
-    notify({ pass: "Passed inspection — it goes to acceptance.", accept: "Package accepted.", return: "Returned to the annotator with your note." }[decision], "success");
+    notify(decision === "accept" ? "Package accepted." : "Returned to the annotator with your note.", "success");
     store.emit();
     onDone();
   };
@@ -40,12 +39,11 @@ export function ReviewBar({ store, pkg, onDone, flush }: { store: TaskStore; pkg
       <span className="rb-icon"><Icon name="shield" /></span>
       <div className="rb-text">
         <div><b>{STAGE_TEXT[g]}</b> <span className="muted">{who}</span></div>
-        {note && <div className="rb-note"><Icon name={g === "returned" ? "alert" : "info"} /> <b>{note.by}</b> ({note.stage}, {note.at}): {note.note}</div>}
+        {note && <div className="rb-note"><Icon name="alert" /> <b>{note.by}</b> ({note.at}): {note.note}</div>}
       </div>
       <span style={{ flex: 1 }} />
-      {(inspect || accept) && <button className="sec" onClick={() => setReturning(true)}><Icon name="arrow-left" /> Return to annotator</button>}
-      {inspect && <button onClick={() => decide("pass")}><Icon name="check" /> Pass inspection</button>}
-      {accept && <button onClick={() => decide("accept")}><Icon name="check-circle" /> Accept</button>}
+      {review && <button className="sec" onClick={() => setReturning(true)}><Icon name="arrow-left" /> Return to annotator</button>}
+      {review && <button onClick={() => decide("accept")}><Icon name="check-circle" /> Accept</button>}
       {returning && <ReturnDialog onClose={() => setReturning(false)} onReturn={t => { setReturning(false); decide("return", t); }} />}
     </div>
   );

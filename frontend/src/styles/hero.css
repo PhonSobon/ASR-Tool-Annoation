@@ -1,0 +1,10 @@
+/* Home page hero: the headline centered on the soft blue background. */
+.lp-hero::before { display:none; }
+.lp-hero { min-height:min(720px, 90vh); align-items:center; text-align:center; }
+.lp-hero-in { max-width:860px; margin:0 auto; pointer-events:auto; }
+.lp-hero-in > p { max-width:640px; margin-left:auto; margin-right:auto; }
+.lp-hero .lp-cta { justify-content:center; }
+@media (max-width:900px) {
+  .lp-hero { min-height:0; }
+  .lp-hero-in { padding-top:24px; }
+}

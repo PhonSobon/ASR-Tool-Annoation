@@ -1,5 +1,5 @@
 """Tasks: push audio from Upload & Crop into a batch, or load a Hugging Face dataset / a local folder with its text
-(Load Data), list (My Tasks), open, delete, assign people, review the packages (inspection, acceptance), push the
+(Load Data), list (My Tasks), open, delete, assign people, review the packages (accept or return), push the
 annotations to the Hub."""
 import json
 import re
@@ -18,14 +18,14 @@ bp = Blueprint("tasks", __name__, url_prefix="/api/tasks")
 
 @bp.get("")
 def list_tasks():
-    """The tasks the logged-in user may see (managers and viewers: all; the others: those they are assigned to)."""
+    """The tasks the logged-in user may see (managers: all; the others: those they are assigned to)."""
     return jsonify(tasks=tasks.list_tasks(guard.current_user()))
 
 
 @bp.post("")
 @require("audio.upload")
 def push():
-    """Body: {name, audio_ids: [...], members?: {annotator, inspector, acceptor}} -> new task with those audio."""
+    """Body: {name, audio_ids: [...], members?: {annotator, inspector}} -> new task with those audio."""
     data = request.get_json(force=True) or {}
     try:
         return jsonify(tasks.create_task(data.get("name"), data.get("audio_ids") or [], guard.username(),
@@ -177,43 +177,75 @@ def delete_task(task_id):
 
 @bp.put("/<task_id>/members")
 def set_members(task_id):
-    """{annotator: [user, ...], inspector: [...], acceptor: [...], open_roles?: ["annotator", ...]} -> the members and
+    """{annotator: [user, ...], inspector: [...] (the reviewers), open_roles?: ["annotator", ...]} -> the members and
     the roles that may claim the task themselves (open_roles left out: unchanged)."""
-    access.task(task_id, "manage")
+    task = access.task(task_id, "manage")
     data = request.get_json(force=True, silent=True) or {}
     try:
-        m = tasks.set_members(task_id, data)
+        new_members = tasks.clean_members(data)
     except ValueError as e:
         return jsonify(error=str(e)), 400
+    if "open_roles" in data:
+        try:
+            tasks.check_take_back(task, tasks.clean_open_roles(data["open_roles"]), new_members)
+        except ValueError as e:
+            return jsonify(error=str(e)), 409
+    m = tasks.set_members(task_id, data)
     open_roles = tasks.set_open_roles(task_id, data["open_roles"]) if "open_roles" in data         else tasks.clean_open_roles(tasks.read(task_id).get("open_roles"))
     return jsonify(members=m, open_roles=open_roles)
 
 
-@bp.post("/<task_id>/claim")
-def claim(task_id):
-    """The logged-in user joins a task open to their role (My Tasks -> Available to claim) -> the members."""
+@bp.put("/<task_id>/share")
+def share(task_id):
+    """{annotator: bool}: a manager pushes the task to the annotators (they can pull it from My Tasks) or takes it
+    back. Other open roles stay as they are -> {open_roles}. A task still loading cannot be pushed."""
+    task = access.task(task_id, "manage")
+    data = request.get_json(force=True, silent=True) or {}
+    on = bool(data.get("annotator"))
+    if on and (task.get("source") or {}).get("state", "ready") != "ready":
+        return jsonify(error="The data is still loading - push it to annotators when it is ready"), 400
+    if on and not tasks.summary(task_id)["count"]:
+        return jsonify(error="This task has no package to annotate"), 400
+    current = [r for r in tasks.clean_open_roles(task.get("open_roles")) if r != "annotator"]
+    if not on:
+        try:
+            tasks.check_take_back(task, current)
+        except ValueError as e:
+            return jsonify(error=str(e)), 409
+    return jsonify(open_roles=tasks.set_open_roles(task_id, current + ["annotator"] if on else current))
+
+
+@bp.post("/<task_id>/pull")
+def pull(task_id):
+    """The logged-in user pulls a task pushed to their role (My Tasks -> Available to pull) and joins it -> the
+    members."""
     try:
         return jsonify(members=tasks.claim(task_id, guard.current_user()))
+    except tasks.PulledAlready as e:
+        return jsonify(error=str(e), pulled=True), 409
     except ValueError as e:
         return jsonify(error=str(e)), 400
 
 
+@bp.post("/<task_id>/claim")
+def claim(task_id):
+    """Old name of /pull, kept for older clients."""
+    return pull(task_id)
+
+
 @bp.post("/<task_id>/review")
 def review(task_id):
-    """{audio_id, index, step: "inspection" | "acceptance", decision: "pass" | "accept" | "return", note?}
-    -> the package (crop). Returning a package needs a note for the annotator."""
+    """{audio_id, index, decision: "accept" | "return", note?} -> the package (crop). One review step: the reviewer
+    accepts the package or returns it to the annotator with a note. ("pass" from older clients means accept.)"""
     data = request.get_json(force=True, silent=True) or {}
-    step = data.get("step")
-    if step not in ("inspection", "acceptance"):
-        return jsonify(error="step must be inspection or acceptance"), 400
-    access.task(task_id, "inspect" if step == "inspection" else "accept")
+    decision = "accept" if data.get("decision") == "pass" else data.get("decision")
+    access.task(task_id, "review")
     try:
         index = int(data.get("index"))
     except (TypeError, ValueError):
         return jsonify(error="index must be a number"), 400
     try:
-        crop = tasks.review_package(task_id, data.get("audio_id"), index, step, data.get("decision"),
-                                    data.get("note"), guard.current_user())
+        crop = tasks.review_package(task_id, data.get("audio_id"), index, decision, data.get("note"), guard.current_user())
     except ValueError as e:
         return jsonify(error=str(e)), 400
     return jsonify(crop=crop)
@@ -241,7 +273,7 @@ def stop(task_id):
 @bp.post("/<task_id>/hub-push")
 @require("hub.push")
 def hub_push(task_id):
-    """{repo_id, split?, include?: "accepted" | "passed" | "done" | "with_text", private?, create_pr?, token?}:
+    """{repo_id, split?, include?: "accepted" | "done" | "with_text", private?, create_pr?, token?}:
     upload the annotated segments as parquet to a Hub dataset repo (background job; the result has the commit or
     pull request URL). A private repo needs the token."""
     access.task(task_id)
@@ -265,7 +297,7 @@ def hub_push(task_id):
         total = len(segments)
         if not total:
             raise ValueError({"accepted": "Nothing to push - no package is accepted yet",
-                              "passed": "Nothing to push - no package passed inspection yet",
+                              "passed": "Nothing to push - no package is accepted yet",
                               "done": "Nothing to push - no completed package with text yet"}.get(
                                   include, "Nothing to push - no segment has text yet"))
         stats = {"seconds": 0.0}
@@ -308,7 +340,7 @@ def hub_push(task_id):
 def _report(include):
     """What every task pushed to the repo has in common (the numbers per task are in the card's batch table)."""
     kept = {"accepted": "packages accepted after quality inspection",
-            "passed": "packages that passed quality inspection",
+            "passed": "accepted packages",
             "done": "completed packages (every segment has text)"}.get(include, "every segment with text")
     return "\n".join([
         f"- Source: annotation tasks made with this tool; each task keeps its {kept}; 16 kHz mono WAV",

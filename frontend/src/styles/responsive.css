@@ -1,0 +1,126 @@
+/* Responsive layer for every page, loaded last (app/globals.css). Breakpoints: tablet <= 1024px, phone <= 640px,
+   small phone <= 380px, and touch screens (pointer: coarse). The pages keep their own layout; this file only stops
+   anything from needing more width than the screen has. Wide data tables keep scrolling sideways in .table-wrap. */
+
+/* nothing pushes the page sideways */
+body { overflow-x:clip; }
+img, video, canvas { max-width:100%; }
+
+/* grids never ask for a column wider than the screen */
+.cards { grid-template-columns:repeat(auto-fill, minmax(min(300px, 100%), 1fr)); }
+.dash-grid { grid-template-columns:repeat(auto-fit, minmax(min(340px, 100%), 1fr)); }
+.form-grid { grid-template-columns:repeat(auto-fill, minmax(min(260px, 100%), 1fr)); }
+.load-sources { grid-template-columns:repeat(auto-fit, minmax(min(220px, 100%), 1fr)); }
+.imp-grid { grid-template-columns:repeat(auto-fill, minmax(min(190px, 100%), 1fr)); }
+.act-cards { grid-template-columns:repeat(auto-fill, minmax(min(170px, 100%), 1fr)); }
+.imp-row .fld.grow { flex-basis:min(320px, 100%); }
+.imp-row .fld { flex-basis:min(220px, 100%); }
+.report-row select { min-width:min(260px, 100%); }
+.drp-field { min-width:min(250px, 100%); max-width:100%; }
+.drp-cal { width:min(300px, calc(100vw - 48px)); }
+
+/* phone menu: a dimmed backdrop closes it */
+.side-backdrop { display:none; }
+@media (max-width:800px) {
+  .side-backdrop { display:block; position:fixed; inset:0; z-index:34; background:rgba(15,23,42,.45); animation:fade-in .2s ease both; }
+  .sidebar { width:min(var(--side-w), 82vw); }
+}
+@keyframes fade-in { from { opacity:0; } }
+
+/* ---------- tablet ---------- */
+@media (max-width:1024px) {
+  .main { padding:20px 16px 56px; }
+  .dash-grid { grid-template-columns:1fr; }
+}
+
+/* ---------- phone ---------- */
+@media (max-width:640px) {
+  .main { padding:14px 10px 48px; }
+  .panel { padding:14px; border-radius:var(--r); }
+  .headcard { margin-bottom:14px; }
+  .headcard h2 { font-size:18px; }
+  :is(.head-row, .act-head, .task-head) > div:first-child { min-width:0; flex-basis:100%; }
+
+  /* top bar: only the current page in the breadcrumbs, a short save status */
+  .appbar { gap:8px; padding:0 10px 0 4px; }
+  .crumbs > :not(:last-child) { display:none; }
+  .save-state { max-width:32vw; overflow:hidden; text-overflow:ellipsis; }
+  .me-menu { position:fixed; left:8px; right:8px; top:calc(var(--bar-h) + 4px); width:auto; }
+
+  /* toolbars and filters: one control per line, full width */
+  .toolbar > .search, .toolbar .search input, .act-bar > input[type=search] { flex:1 1 100%; width:100%; }
+  .toolbar > select, .act-bar > select { flex:1 1 auto; }
+  .filter-bar > * { flex:1 1 100%; max-width:none; }
+  .filter-bar > button, .filter-bar > .count-note { flex:none; }
+  .act-filters .chip { height:var(--h-sm); padding:0 10px; font-size:var(--fs-xs); }
+  .pkg-actions { gap:6px; }
+  .pkg-actions select { max-width:100%; }
+  .pkg-actions .sep { display:none; }
+
+  /* cards and stats */
+  .act-cards { grid-template-columns:1fr 1fr; gap:8px; }
+  .act-card { padding:10px; }
+  .act-card b { font-size:var(--fs-xl); }
+  .tc-tags { padding:12px 14px 0; }
+  .tc-body { padding:8px 14px 14px; }
+
+  /* tables scroll edge to edge inside the panel */
+  .panel > .table-wrap, .panel .table-wrap { margin-left:-14px; margin-right:-14px; border-left:0; border-right:0; border-radius:0; }
+  .pkg-table th, .pkg-table td { padding:10px 12px; }
+  .dash-prog { width:100px; }
+
+  /* the cut editor and the package page */
+  .wavepanel { padding:10px; }
+  .controls { padding:8px 10px; gap:8px 10px; }
+  .controls .sep { display:none; }
+  .controls input[type=range] { width:96px; }
+  .clock { min-width:0; }
+  .pkg-bar { padding:10px 12px; }
+  .pkg-nav { width:100%; justify-content:space-between; }
+  .pkg-foot { gap:8px; }
+  .pkg-foot > button { flex:1 1 auto; }
+  .review-bar { align-items:flex-start; padding:10px 12px; }
+  .rv { padding:12px; }
+  .rv-wave { flex-wrap:wrap; }
+
+  /* dialogs: full-width buttons that are easy to tap */
+  dialog.confirm, dialog.push-dlg, dialog.spec { padding:18px; }
+  .confirm-actions { flex-wrap:wrap; }
+  .confirm-actions > button { flex:1 1 auto; }
+  .mem-groups { max-height:60vh; }
+
+  /* date range: a sheet at the bottom of the screen */
+  .drp-pop { position:fixed; left:8px; right:8px; top:auto; bottom:8px; max-height:85vh; overflow:auto; }
+  .drp-cal { width:auto; }
+
+  /* sign-in */
+  .auth-side { padding:12px; }
+  .auth-card { padding:20px; }
+  .auth-top-r { gap:6px; }
+  .auth-home { padding:6px; }
+}
+
+/* ---------- small phone ---------- */
+@media (max-width:380px) {
+  .act-cards, .lp-stats, .lp-dash-cards { grid-template-columns:1fr; }
+  .lp-stats li + li { border-left:1px solid var(--border); }
+  .auth-brand > span { display:none; }
+}
+
+/* ---------- touch screens ---------- */
+@media (pointer:coarse) {
+  /* 16px stops phones from zooming in when a field gets the focus */
+  input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea { font-size:16px; }
+  button.small { height:36px; }
+  .chip { min-height:34px; }
+  .nav-item { padding-top:11px; padding-bottom:11px; }
+}
+
+/* home navbar with six links: compact between the full bar and the phone menu */
+@media (max-width:1180px) and (min-width:901px) {
+  .lp-brand small { display:none; }
+  .lp-nav-in { gap:10px; }
+  .lp-links a { padding:7px 9px; font-size:13px; }
+  .lp-nav .lp-btn { padding:0 12px; }
+  .lp-nav .theme-switch button { min-width:26px; padding:0 5px; }
+}

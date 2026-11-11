@@ -5,7 +5,7 @@ Per user, within an optional period (since / until "YYYY-MM-DD"):
     annotation  packages they annotated and completed (crop.annotator, counted by crop.updated) and their hours,
                 how many of them were accepted (by acceptance.at), times their packages were returned (errors, by the
                 return's time), packages still in progress
-    review      inspection passes, acceptances and returns they made (crop.history)
+    review      packages they accepted and returned (crop.history; "inspected" = passes from before the one review step)
     cleaning    dataset clips they accepted / rejected (item.reviewer, by item.updated) and the accepted hours
 """
 from sqlalchemy import select
@@ -54,7 +54,7 @@ def stats(since="", until=""):
                 elif inside(crop.get("updated")):
                     a["done"] += 1
                     a["done_seconds"] += secs
-                if st in ("accepting", "accepted") and inside((crop.get("inspection") or {}).get("at")):
+                if st == "accepted" and inside((crop.get("acceptance") or {}).get("at")):
                     a["passed"] += 1
                 if st == "accepted" and inside((crop.get("acceptance") or {}).get("at")):
                     a["accepted"] += 1

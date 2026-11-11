@@ -1,5 +1,5 @@
 "use client";
-// One task: "Task Batch List" (packages = crops; tabs Todo / Inspection / Acceptance / Done, filters, duration
+// One task: "Task Batch List" (packages = crops; tabs Todo / Review / Done, filters, duration
 // stats, Recognize all, members, export, push to the Hub) and the package view of one package (PackageView).
 // A task made by Load Data from a Hugging Face dataset shows its loading job and fills in while the clips arrive.
 import { use, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -15,14 +15,14 @@ import { useCrumbs, useSession } from "@/components/session";
 import { api, download, getJson } from "@/lib/api";
 import { fmtHms, fmtT } from "@/lib/format";
 import {
-  acceptorOf, cropLabel, cropStage, cropState, handTyped, inspectorOf, inTab, liveParts, STATUS, syncCrop, TAB_LABEL, TABS, type Tab,
+  cropLabel, cropStage, cropState, handTyped, inTab, liveParts, reviewerOf, STATUS, syncCrop, TAB_LABEL, TABS, type Tab,
 } from "@/lib/review";
 import { TaskStore, type Pkg } from "@/lib/task-store";
 import type { Members, Task, TaskSummary } from "@/lib/types";
 
 /** member roles a task can be opened to for claiming */
-const ROLE_GROUP: Record<string, string> = { annotator: "Annotators", inspector: "Quality inspectors", acceptor: "Acceptors" };
-const INCLUDE_STAGES: Record<string, string[]> = { accepted: ["accepted"], passed: ["accepting", "accepted"], done: ["inspecting", "accepting", "accepted"] };
+const ROLE_GROUP: Record<string, string> = { annotator: "Annotators", inspector: "Reviewers" };
+const INCLUDE_STAGES: Record<string, string[]> = { accepted: ["accepted"], done: ["inspecting", "accepted"] };
 
 export default function TaskPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -48,15 +48,15 @@ function TaskView({ store, can, nameOf, reload }: { store: TaskStore; can: (p: s
   const router = useRouter();
   useSyncExternalStore(store.subscribe, () => store.version, () => store.version);
   const task = store.task, acc = task.access!, crops = store.crops;
-  const mine: Tab = me.role === "inspector" ? "inspect" : me.role === "acceptor" ? "accept" : "todo";
+  const mine: Tab = me.role === "inspector" ? "review" : "todo";
   const [tab, setTab] = useState<Tab>(() => [mine, ...TABS].find(t => crops.some(c => inTab(c.seg, t))) || mine);
-  const [f, setF] = useState({ audio: "", pkg: "", annotator: "", inspector: "", acceptor: "" });
+  const [f, setF] = useState({ audio: "", pkg: "", annotator: "", reviewer: "" });
   const [page, setPage] = useState(1), [per, setPer] = useState(10);
   const [cur, setCur] = useState(-1);
   const [taskStatus, setTaskStatus] = useState("");
   const [recRunning, setRecRunning] = useState(false);
   const recStop = useRef({ stop: false });
-  const [members, setMembers] = useState(false), [pushing, setPushing] = useState(false);
+  const [members, setMembers] = useState(false), [pushing, setPushing] = useState(false), [sharing, setSharing] = useState(false);
   const [include, setInclude] = useState("accepted");
   const [dlAudio, setDlAudio] = useState("");                            // the audio "Download audio" saves
 
@@ -80,7 +80,7 @@ function TaskView({ store, can, nameOf, reload }: { store: TaskStore; can: (p: s
     const qa = f.audio.trim().toLowerCase(), qp = f.pkg.trim().toLowerCase();
     return (!qa || c.audio.name.toLowerCase().includes(qa)) && (!qp || c.pkg.toLowerCase().includes(qp)) &&
            (!f.annotator || (c.seg.annotator || "") === f.annotator) &&
-           (!f.inspector || inspectorOf(c.seg) === f.inspector) && (!f.acceptor || acceptorOf(c.seg) === f.acceptor);
+           (!f.reviewer || reviewerOf(c.seg) === f.reviewer);
   }, [f]);
   const filtered = useCallback(() => crops.map((_, i) => i).filter(i => inTab(crops[i].seg, tab) && matches(crops[i])),
                                [crops, tab, matches]);
@@ -99,18 +99,17 @@ function TaskView({ store, can, nameOf, reload }: { store: TaskStore; can: (p: s
 
   const handler = (c: Pkg) => {
     const m: Members = task.members, g = cropStage(c.seg);
-    const names = g === "inspecting" ? m.inspector : g === "accepting" ? m.acceptor
+    const names = g === "inspecting" ? m.inspector
                 : ["annotating", "returned"].includes(g) ? (c.seg.annotator ? [c.seg.annotator] : m.annotator) : [];
     return names.map(nameOf).join(", ");
   };
   const openLabel = (c: Pkg) => {
     const g = cropStage(c.seg);
-    if (g === "inspecting" && acc.inspect) return "Inspect";
-    if (g === "accepting" && acc.accept) return "Accept";
+    if (g === "inspecting" && acc.review) return "Review";
     return ["annotating", "returned"].includes(g) && store.editable(c) ? "Annotate" : "View";
   };
-  const claimTab: Tab = acc.edit && !["inspector", "acceptor"].includes(me.role) ? (tab === "done" ? "todo" : tab)
-                      : me.role === "acceptor" ? "accept" : me.role === "inspector" ? "inspect" : tab;
+  const claimTab: Tab = acc.edit && me.role !== "inspector" ? (tab === "done" ? "todo" : tab)
+                      : me.role === "inspector" ? "review" : tab;
 
   // people to filter by: those found in the open tab (else picking one could only show "No data"), plus the chosen one
   const options = (of: (c: Pkg) => string | undefined, chosen: string) =>
@@ -118,7 +117,7 @@ function TaskView({ store, can, nameOf, reload }: { store: TaskStore; can: (p: s
   const live = crops.filter(c => cropState(c.seg) !== "skipped");
   const len = (c: Pkg) => liveParts(c.seg).reduce((a, p) => a + p.end - p.start, 0);
   const total = live.reduce((a, c) => a + len(c), 0), done = live.filter(c => cropState(c.seg) === "done").reduce((a, c) => a + len(c), 0);
-  const passed = live.filter(c => ["accepting", "accepted"].includes(cropStage(c.seg))).reduce((a, c) => a + len(c), 0);
+  const passed = live.filter(c => cropStage(c.seg) === "accepted").reduce((a, c) => a + len(c), 0);
 
   // ---------- Recognize all (every segment without text in the task) ----------
   const recognizeAll = async () => {
@@ -151,7 +150,7 @@ function TaskView({ store, can, nameOf, reload }: { store: TaskStore; can: (p: s
     if (fatal) return;
     const err = crops.filter(c => cropState(c.seg) === "error").length;
     const msg = `${stop.stop ? "Stopped" : "Finished"}: ${k} segment(s) recognized${err ? `, ${err} package(s) with errors (open them and press Recognize)` : ""}.` +
-                (todo.length ? "" : " Nothing to do — every segment already has text.") + " Check each package in Todo, then press Complete to send it to inspection.";
+                (todo.length ? "" : " Nothing to do — every segment already has text.") + " Check each package in Todo, then press Complete to send it to review.";
     setTaskStatus(msg);
     notify(msg, err ? "warn" : stop.stop ? "info" : "success");
   };
@@ -166,6 +165,17 @@ function TaskView({ store, can, nameOf, reload }: { store: TaskStore; can: (p: s
   const downloadPkg = (c: Pkg) => {
     const q = new URLSearchParams({ start: String(c.seg.start), end: String(c.seg.end), name: c.pkg.replace(/\.[^.]+$/, "") });
     download(`/api/audios/${c.audio.id}/download?${q}`);
+  };
+
+  const pushed = !!task.open_roles?.includes("annotator");
+  const pullers = (task.pulled || []).filter(p => p.role === "annotator");
+  const share = async () => {
+    setSharing(true);
+    try { ({ open_roles: task.open_roles } = await api(`/api/tasks/${task.id}/share`, { annotator: !pushed }, "PUT")); }
+    catch (e: any) { return notify("Cannot push: " + e.message, "error"); }
+    finally { setSharing(false); }
+    store.emit();
+    notify(pushed ? "Taken back: annotators can no longer pull this task." : "Pushed: annotators can now pull this task in My Tasks.", "success");
   };
 
   const saveMembers = async (m: Record<string, string[]>, open: string[]) => {
@@ -194,11 +204,11 @@ function TaskView({ store, can, nameOf, reload }: { store: TaskStore; can: (p: s
   }, []);
 
   const m = task.members;
-  const membersText = [["Annotators", m.annotator], ["Inspectors", m.inspector], ["Acceptors", m.acceptor]]
+  const membersText = [["Annotators", m.annotator], ["Reviewers", m.inspector]]
     .filter(([, l]) => (l as string[]).length).map(([label, l]) => `${label}: ${(l as string[]).map(nameOf).join(", ")}`).join(" · ")
     || (acc.manage ? "Nobody is assigned yet — press Members." : "");
   const openText = task.open_roles?.length && acc.manage
-    ? `Open for claiming: ${task.open_roles.map(r => ROLE_GROUP[r] || r).join(", ")}` : "";
+    ? `Open for pulling: ${task.open_roles.map(r => ROLE_GROUP[r] || r).join(", ")}` : "";
 
   if (cur >= 0) {
     const l = workList();
@@ -212,7 +222,10 @@ function TaskView({ store, can, nameOf, reload }: { store: TaskStore; can: (p: s
         <div className="task-head">
           <div>
             <h2>{task.name}{acc.edit ? "" : <span className="pill" style={{ marginLeft: 10, verticalAlign: 3 }}>Read only</span>}</h2>
-            <p>{membersText || "Packages of this task"}{openText && <span className="pill" style={{ marginLeft: 8 }}>{openText}</span>}</p>
+            <p>{membersText || "Packages of this task"}{openText && <span className="pill" style={{ marginLeft: 8 }}>{openText}</span>}
+              {acc.manage && pullers.length > 0 && <span className="pill pulled" style={{ marginLeft: 8 }}
+                title={pullers.map(p => `${nameOf(p.username)} pulled it ${p.at}`).join(" · ")}>
+                <Icon name="users" /> Pulled by {pullers.map(p => nameOf(p.username)).join(", ")}</span>}</p>
             {task.source && <p className="muted">
               {task.source.kind === "hub" ? <>Loaded from <a href={`https://huggingface.co/datasets/${task.source.repo}`} target="_blank" rel="noopener">{task.source.repo}</a>
                 {` · ${task.source.config} / ${task.source.split}`}{task.source.max_rows ? ` · rows ${task.source.start_row}–${(task.source.start_row || 0) + task.source.max_rows - 1}` : ""}</>
@@ -232,23 +245,27 @@ function TaskView({ store, can, nameOf, reload }: { store: TaskStore; can: (p: s
           <div className="search sm"><input type="search" placeholder="Package ID" aria-label="Search by package ID" value={f.pkg}
                                             onChange={e => setFilter("pkg", e.target.value)} />
             <button type="button" tabIndex={-1} aria-hidden="true"><Icon name="search" /></button></div>
-          {([["annotator", "All annotators", (c: Pkg) => c.seg.annotator], ["inspector", "All inspectors", (c: Pkg) => inspectorOf(c.seg)],
-             ["acceptor", "All acceptors", (c: Pkg) => acceptorOf(c.seg)]] as const).map(([k, all, of]) => (
+          {([["annotator", "All annotators", (c: Pkg) => c.seg.annotator], ["reviewer", "All reviewers", (c: Pkg) => reviewerOf(c.seg)]] as const).map(([k, all, of]) => (
             <select key={k} aria-label={`Filter by ${k}`} value={f[k]} onChange={e => setFilter(k, e.target.value)}>
               <option value="">{all}</option>{options(of, f[k]).map(n => <option key={n} value={n}>{nameOf(n)}{nameOf(n) !== n ? ` (${n})` : ""}</option>)}
             </select>))}
-          {filtering && <button type="button" className="sec" onClick={() => { setF({ audio: "", pkg: "", annotator: "", inspector: "", acceptor: "" }); setPage(1); }}>Clear</button>}
+          {filtering && <button type="button" className="sec" onClick={() => { setF({ audio: "", pkg: "", annotator: "", reviewer: "" }); setPage(1); }}>Clear</button>}
         </div>
 
         <div className="pkg-actions">
-          {(acc.edit || acc.inspect || acc.accept) && <button className="sec" title={`Open the next package in ${TAB_LABEL[claimTab]}`}
+          {(acc.edit || acc.review) && <button className="sec" title={`Open the next package in ${TAB_LABEL[claimTab]}`}
             disabled={!crops.some(c => inTab(c.seg, claimTab))} onClick={() => { const i = crops.findIndex(c => inTab(c.seg, claimTab)); if (i >= 0) { setTab(claimTab); setCur(i); } }}>
             <Icon name="file" /> Claim Package</button>}
           {acc.edit && can("asr.run") && !task.source && <>   {/* loaded data has its text: nothing to recognize */}
             <button className="sec" title="Recognize every package that has no text yet" disabled={recRunning} onClick={recognizeAll}><Icon name="recognize" /> Recognize all</button>
             <button className="stop" disabled={!recRunning} onClick={() => { recStop.current.stop = true; setTaskStatus("Stopping after the current segment…"); }}><Icon name="stop" /> Stop</button>
           </>}
-          {acc.manage && <button className="sec" title="Choose who annotates, inspects and accepts this task" onClick={() => setMembers(true)}><Icon name="users" /> Members</button>}
+          {acc.manage && <button className={pushed ? "sec" : ""} disabled={sharing || (pushed && pullers.length > 0)}
+            title={pushed && pullers.length ? "Someone already pulled this task — it cannot be taken back"
+                   : pushed ? "Annotators can pull this task in My Tasks - take it back so only assigned people work on it"
+                   : "Let annotators pull this task themselves from My Tasks"} onClick={share}>
+            <Icon name={sharing ? "loader" : pushed ? "x" : "upload"} className={sharing ? "spin" : ""} /> {pushed ? "Take back from annotators" : "Push to annotators"}</button>}
+          {acc.manage && <button className="sec" title="Choose who annotates and reviews this task" onClick={() => setMembers(true)}><Icon name="users" /> Members</button>}
           {can("data.export") && <button className="sec" title="Download every package of this task as one ZIP" onClick={exportZip}><Icon name="download" /> Export task ZIP</button>}
           {can("data.export") && task.audios.length > 0 && <span className="nowrap">
             <select aria-label="Audio to download" value={dlAudio || task.audios[0].id} onChange={e => setDlAudio(e.target.value)}
@@ -277,7 +294,7 @@ function TaskView({ store, can, nameOf, reload }: { store: TaskStore; can: (p: s
             <div className="info-stats">
               <span>Total Duration: <b>{fmtHms(total)}</b><span className="q" title="Length of all segments in this task (skipped ones not counted)"><Icon name="help" /></span></span>
               <span>Effective Duration: <b>{fmtHms(done)}</b><span className="q" title="Length of the completed packages (every segment has annotation text)"><Icon name="help" /></span></span>
-              <span>Quality Passed Effective Duration: <b>{fmtHms(passed)}</b><span className="q" title="Completed packages that passed quality inspection (accepted or waiting for acceptance)"><Icon name="help" /></span></span>
+              <span>Accepted Effective Duration: <b>{fmtHms(passed)}</b><span className="q" title="Completed packages that the reviewer accepted"><Icon name="help" /></span></span>
             </div>
           </div>
         </div>
@@ -285,7 +302,7 @@ function TaskView({ store, can, nameOf, reload }: { store: TaskStore; can: (p: s
         <div className="table-wrap">
           <table className="pkg-table">
             <thead><tr>
-              <th>Package Name</th><th>Status</th><th>Annotator</th><th>Quality Inspector</th><th>Acceptor</th>
+              <th>Package Name</th><th>Status</th><th>Annotator</th><th>Reviewer</th>
               <th>Current Handler</th><th>Last update</th><th>Action</th>
             </tr></thead>
             <tbody>
@@ -298,8 +315,7 @@ function TaskView({ store, can, nameOf, reload }: { store: TaskStore; can: (p: s
                     <td><span className={"st " + st}>{STATUS[st]}</span>
                       {s.returned && <div className="pkg-sub" title={s.returned.note}><Icon name="alert" /> {s.returned.note.slice(0, 40)}</div>}</td>
                     <td>{s.annotator ? <span className="who">{nameOf(s.annotator)}</span> : "-"}</td>
-                    <td>{inspectorOf(s) ? <span className="who">{nameOf(inspectorOf(s))}</span> : "-"}</td>
-                    <td>{acceptorOf(s) ? <span className="who">{nameOf(acceptorOf(s))}</span> : "-"}</td>
+                    <td>{reviewerOf(s) ? <span className="who">{nameOf(reviewerOf(s))}</span> : "-"}</td>
                     <td>{h || "-"}</td>
                     <td className="nowrap">{s.updated || "-"}</td>
                     <td className="nowrap"><a className="open" onClick={() => setCur(i)}>{openLabel(c)}</a>
@@ -319,11 +335,10 @@ function TaskView({ store, can, nameOf, reload }: { store: TaskStore; can: (p: s
       </div>
 
       {members && <MembersDialog title={`Members of “${task.name}”`} current={task.members as any}
-        text="Annotators, inspectors and acceptors see only the tasks they are members of. Managers and viewers see every task."
+        text="Annotators and reviewers see only the tasks they are members of. Managers see every task."
         groups={[{ key: "annotator", label: "Annotators", roles: ["annotator", "manager", "admin"] },
-                 { key: "inspector", label: "Quality inspectors", roles: ["inspector", "manager", "admin"] },
-                 { key: "acceptor", label: "Acceptors", roles: ["acceptor", "manager", "admin"] }]}
-        claim={{ text: "Users of the roles ticked see this task under “Available to claim” in My Tasks and can join it themselves. Untick all to assign people only.",
+                 { key: "inspector", label: "Reviewers", roles: ["inspector", "manager", "admin"] }]}
+        claim={{ legend: "Open for pulling", text: "Users of the roles ticked see this task under “Available to pull” in My Tasks and can pull it themselves. Untick all to assign people only.",
                  options: Object.entries(ROLE_GROUP).map(([key, label]) => ({ key, label })), current: task.open_roles || [] }}
         onSave={saveMembers} onClose={() => setMembers(false)} />}
 
@@ -332,7 +347,7 @@ function TaskView({ store, can, nameOf, reload }: { store: TaskStore; can: (p: s
           defaults={{ repo: lastPush && !lastPush.pr ? lastPush.repo : "", split: lastPush ? lastPush.split : "train" }}
           suggestRepo={u => `${u}/${task.name.replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "") || "khmer_asr_dataset"}`}
           info={fp => { const [n, sec] = pushCount(include);
-            return `${n} segments (${fmtHms(sec)}) of the ${{ accepted: "accepted packages", passed: "packages that passed inspection", done: "completed packages" }[include]} are uploaded as parquet to data/${fp.split || "train"}-task-${task.id}-*.parquet ` +
+            return `${n} segments (${fmtHms(sec)}) of the ${{ accepted: "accepted packages", done: "completed packages" }[include]} are uploaded as parquet to data/${fp.split || "train"}-task-${task.id}-*.parquet ` +
               "with audio, text, text_normalized, role, speaker and audio information." +
               (fp.create_pr ? " A pull request is opened — the owner of the repo decides whether to merge it."
                             : " Only this task's earlier files are replaced: other tasks pushed to the same repo stay, and the dataset card's batch table gets a row for this task."); }}
@@ -344,7 +359,6 @@ function TaskView({ store, can, nameOf, reload }: { store: TaskStore; can: (p: s
           }}>
           <label className="fld"><span>Packages</span><select value={include} onChange={e => setInclude(e.target.value)}>
             <option value="accepted">Accepted packages</option>
-            <option value="passed">Passed inspection (accepted or waiting for acceptance)</option>
             <option value="done">Completed packages (with or without review)</option></select></label>
         </HubPushDialog>
       )}

@@ -1,0 +1,53 @@
+/* Project Dashboard (app/(app)/dashboard). Chart colors: the validated categorical order (slots 1-5) on the white card. */
+.dash { --s1:#94a3b8; --s2:#dc2626; --s3:#93c5fd; --s4:#3b82f6; --s5:#1e3a8a; --s-none:var(--border); --d1:#93c5fd; --d2:#3b82f6; --d3:#1e3a8a; }
+:root[data-theme="dark"] .dash { --s1:#64748b; --s2:#ef4444; --s3:#1d4ed8; --s4:#3b82f6; --s5:#93c5fd; --d1:#1d4ed8; --d2:#3b82f6; --d3:#93c5fd; }
+.dash .act-card { text-align:left; }
+.dash .act-card small { color:var(--faint); }
+.dash .act-card.pulled .i { background:var(--violet-soft); color:var(--violet-text); }
+.dash .act-card:not(:disabled) { cursor:pointer; }
+.dash-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:16px; }
+.dash-grid > .panel { margin-bottom:16px; }
+
+.dash-stack { display:flex; gap:2px; height:28px; margin:14px 0 10px; border-radius:4px; overflow:hidden; background:var(--hover); }
+.dash-stack > div { min-width:3px; }
+.dash-legend { list-style:none; display:flex; flex-wrap:wrap; gap:6px 16px; padding:0; margin:0; font-size:var(--fs-xs); color:var(--text-2); }
+.dash-legend li { display:flex; align-items:center; gap:6px; }
+.dash-legend i, .dash-tip i { width:10px; height:10px; border-radius:3px; display:inline-block; }
+.dash-legend b { color:var(--text); font-variant-numeric:tabular-nums; }
+
+.dash-kv { display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:12px; margin-top:12px; }
+.dash-kv div { display:flex; flex-direction:column; }
+.dash-kv b { font-size:var(--fs-xl); font-weight:600; font-variant-numeric:tabular-nums; }
+.dash-kv b.bad { color:var(--err); }
+.dash-kv span { font-size:var(--fs-xs); color:var(--muted); }
+
+.dash-chart .dash-legend { margin:10px 0 4px; }
+.dash-chart-box { position:relative; }
+.dash-chart svg { width:100%; height:auto; display:block; }
+.dash-chart .grid { stroke:var(--border); stroke-width:1; }
+.dash-chart .axis { stroke:var(--border-2); stroke-width:1; }
+.dash-chart .tick { font-size:11px; fill:var(--muted); font-variant-numeric:tabular-nums; }
+.dash-chart .hover-band { fill:var(--hover); }
+.dash-tip { position:absolute; top:0; transform:translateX(-50%); pointer-events:none; background:var(--card); border:1px solid var(--border);
+            border-radius:var(--r); box-shadow:var(--shadow-lg); padding:8px 10px; font-size:var(--fs-xs); color:var(--text-2); white-space:nowrap; }
+.dash-tip > div { display:flex; align-items:center; gap:6px; margin-top:3px; }
+.dash-tip > div b { margin-left:auto; padding-left:10px; color:var(--text); }
+.dash-tip i.none { background:var(--s-none); }
+.dash-empty { position:absolute; inset:0 0 22px 32px; display:flex; align-items:center; justify-content:center; }
+
+.dash-attn { list-style:none; padding:0; margin:12px 0 0; display:flex; flex-direction:column; gap:8px; max-height:320px; overflow:auto; }
+.dash-attn li { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border); border-radius:var(--r);
+                cursor:pointer; font-size:var(--fs-md); }
+.dash-attn li:hover { border-color:var(--primary-line); background:var(--soft); }
+.dash-attn li > span { flex:1; color:var(--text-2); }
+.dash-attn li .i:first-child { width:30px; height:30px; padding:6px; border-radius:var(--r); flex:none; }
+.dash-attn li.waiting_pull .i:first-child { background:var(--run-soft); color:var(--run); }
+.dash-attn li.stale .i:first-child { background:var(--hover); color:var(--muted); }
+.dash-attn li.returned .i:first-child { background:var(--err-soft); color:var(--err); }
+.dash-free { margin:14px 0 4px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:var(--fs-md); }
+
+.dash-table tr.click { cursor:pointer; }
+.dash-table tr.click:hover td { background:var(--soft); }
+.dash-prog { position:relative; width:140px; height:8px; border-radius:4px; background:var(--hover); overflow:hidden; }
+.dash-prog > div { position:absolute; left:0; top:0; bottom:0; background:var(--d1); border-radius:4px; }
+.dash-prog > div.acc { background:var(--d3); }

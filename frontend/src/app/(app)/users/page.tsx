@@ -20,8 +20,8 @@ interface RoleRow { id: string; label: string; description: string; permissions:
 
 const PERM_TEXT: Record<string, string> = {
   "users.manage": "Manage users and roles", "audio.upload": "Load Data, make tasks", "task.manage": "Assign people, delete tasks",
-  "task.view_all": "See every task", "task.annotate": "Annotate packages", "task.inspect": "Quality inspection",
-  "task.accept": "Final acceptance", "asr.run": "Run the ASR", "data.export": "Download ZIPs", "hub.push": "Push to Hugging Face",
+  "task.view_all": "See every task", "task.annotate": "Annotate packages", "task.review": "Review packages (accept / return)",
+  "asr.run": "Run the ASR", "data.export": "Download ZIPs", "hub.push": "Push to Hugging Face",
   "dataset.manage": "Import / check / delete datasets", "dataset.view_all": "See every dataset",
   "dataset.review": "Review dataset clips", "dataset.bulk_accept": "Accept all passing clips",
 };
@@ -92,7 +92,7 @@ export default function UsersPage() {
         <h2>Users &amp; Roles</h2>
         <p>There is no sign-up: you add every account here with a <b>default password</b>. Everyone except administrators
           must replace it with their own password the first time they sign in. The role decides what they can do; project
-          managers then add annotators, inspectors and acceptors to tasks and datasets.</p>
+          managers then add annotators and reviewers to tasks and datasets.</p>
       </div>
 
       <div className="panel">

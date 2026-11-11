@@ -73,10 +73,11 @@ def test_user_admin(client, add_user):
     ana = add_user("ana", "annotator")
     users = client.get("/api/users").json
     assert {u["username"] for u in users["users"]} == {"admin", "ana"}
-    assert "password_hash" not in users["users"][0] and {r["id"] for r in users["roles"]} >= {"inspector", "acceptor"}
+    assert "password_hash" not in users["users"][0] and {r["id"] for r in users["roles"]} >= {"inspector"}
     assert ana.get("/api/users").status_code == 403                      # only the admin manages users
-    assert client.post("/api/users", json={"username": "ana", "password": PASSWORD, "role": "viewer"}).status_code == 400
+    assert client.post("/api/users", json={"username": "ana", "password": PASSWORD, "role": "annotator"}).status_code == 400
     assert client.post("/api/users", json={"username": "x", "password": PASSWORD, "role": "boss"}).status_code == 400
+    assert client.post("/api/users", json={"username": "x", "password": PASSWORD, "role": "viewer"}).status_code == 400
 
     assert client.patch("/api/users/ana", json={"role": "inspector", "name": "Ana"}).json["role"] == "inspector"
     assert ana.get("/api/auth/me").json["user"]["role"] == "inspector"   # takes effect at once
@@ -84,7 +85,7 @@ def test_user_admin(client, add_user):
     assert ana.get("/api/tasks").status_code == 401                      # deactivated: logged out
 
     assert client.delete("/api/users/admin").status_code == 400          # not yourself
-    assert client.patch("/api/users/admin", json={"role": "viewer"}).status_code == 400
+    assert client.patch("/api/users/admin", json={"role": "inspector"}).status_code == 400
     assert client.delete("/api/users/ana").json == {"ok": True}
 
 
@@ -97,7 +98,7 @@ def test_password_change_logs_out_other_browsers(app, client, add_user):
 
 
 def test_roles_limit_what_can_be_done(client, add_user):
-    ana, vic = add_user("ana", "annotator"), add_user("vic", "viewer")
+    ana = add_user("ana", "annotator")
     a = upload(client)
     assert ana.post("/api/audios", data={}, content_type="multipart/form-data").status_code == 403
     assert ana.get("/api/audios").status_code == 403                     # Upload & Crop is for managers
@@ -106,14 +107,13 @@ def test_roles_limit_what_can_be_done(client, add_user):
 
     assert ana.get("/api/tasks").json["tasks"] == []                     # not assigned yet
     assert ana.get(f"/api/tasks/{task['id']}").status_code == 403
-    assert vic.get(f"/api/tasks/{task['id']}").status_code == 200        # viewers see everything ...
-    assert vic.put(f"/api/audios/{a['id']}/state", json={"segments": []}).status_code == 403   # ... and change nothing
+    assert ana.put(f"/api/audios/{a['id']}/state", json={"segments": []}).status_code == 403
 
     assert client.put(f"/api/tasks/{task['id']}/members", json={"annotator": ["nobody"]}).status_code == 400
     assert ana.put(f"/api/tasks/{task['id']}/members", json={"annotator": ["ana"]}).status_code == 403
     client.put(f"/api/tasks/{task['id']}/members", json={"annotator": ["ana"]})
     t = ana.get(f"/api/tasks/{task['id']}").json
-    assert t["access"] == {"view": True, "edit": True, "inspect": False, "accept": False, "manage": False}
+    assert t["access"] == {"view": True, "edit": True, "review": False, "manage": False}
     assert [x["id"] for x in ana.get("/api/tasks").json["tasks"]] == [task["id"]]
     assert ana.get(f"/api/audios/{a['id']}/peaks").status_code == 200
     assert ana.delete(f"/api/tasks/{task['id']}").status_code == 403
@@ -122,7 +122,7 @@ def test_roles_limit_what_can_be_done(client, add_user):
     assert ana.post("/api/hub/inspect", json={"repo": "a/b"}).status_code == 403
     assert ana.post("/api/datasets", json={}).status_code == 403
     assert ana.get("/api/users/directory").status_code == 403
-    assert {u["username"] for u in client.get("/api/users/directory").json["users"]} == {"admin", "ana", "vic"}
+    assert {u["username"] for u in client.get("/api/users/directory").json["users"]} == {"admin", "ana"}
 
 
 def test_strong_passwords_only(client):

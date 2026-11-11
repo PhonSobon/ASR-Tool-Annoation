@@ -13,9 +13,9 @@ It covers two jobs:
 ## Features
 
 **Team work**
-- Log in with your own account. Roles: **Administrator**, **Project Manager**, **Annotator**, **Quality Inspector**, **Acceptor** and **Viewer**.
+- Log in with your own account. Roles: **Administrator**, **Project Manager**, **Annotator** and **Reviewer**.
 - Managers assign people to each task and dataset; everyone else sees only their own work.
-- Every package is checked twice: the quality inspector passes it or returns it with a note, then the acceptor gives the final acceptance. The task page shows who annotated, inspected and accepted each package.
+- Every package is reviewed once: a reviewer accepts it or returns it to the annotator with a note. The task page shows who annotated and who reviewed each package.
 
 **Annotation**
 - Upload many audio or video files at once; anything FFmpeg can read is converted to 16 kHz mono.
@@ -106,35 +106,35 @@ To use another copy, set `OMNI_ASR_MODEL` to a Hugging Face repo id or to a fold
 
 ## Users and roles
 
-There is no sign-up: everyone signs in with an account the administrator made. The administrator comes from `ADMIN_USERNAME` (default `admin`) and `ADMIN_PASSWORD` in `.env`; it is created at start-up and its password can only be changed there (then restart). The administrator adds the other users under **Administration → Users & Roles** with a **default password**; managers, annotators, inspectors, acceptors and viewers must choose their own password the first time they sign in. **Administration → Activity & Status** shows every user's status (online, never signed in, still on the default password, deactivated), who worked today and who did not, and the full activity log. **Administration → Work Dashboard** shows what each user produced in a period (all time, today, 7 / 30 days or chosen dates): hours annotated, packages completed and in progress, how many times their packages were returned (errors) and how many were accepted, the reviews they made, and the dataset clips they accepted or rejected. Every password must be **8 to 12 characters** with an upper-case letter, a lower-case letter, a number and a special character (such as `! @ # $ %`), no spaces, and must not contain the user name.
+There is no sign-up: everyone signs in with an account the administrator made. The administrator comes from `ADMIN_USERNAME` (default `admin`) and `ADMIN_PASSWORD` in `.env`; it is created at start-up and its password can only be changed there (then restart). The administrator adds the other users under **Administration → Users & Roles** with a **default password**; managers, annotators, reviewers and viewers must choose their own password the first time they sign in. **Administration → Activity & Status** shows every user's status (online, never signed in, still on the default password, deactivated), who worked today and who did not, and the full activity log. **Administration → Work Dashboard** shows what each user produced in a period (all time, today, 7 / 30 days or chosen dates): hours annotated, packages completed and in progress, how many times their packages were returned (errors) and how many were accepted, the reviews they made, and the dataset clips they accepted or rejected. Every password must be **8 to 12 characters** with an upper-case letter, a lower-case letter, a number and a special character (such as `! @ # $ %`), no spaces, and must not contain the user name.
 
 | Role | What it can do |
 |---|---|
 | **Administrator** | Everything, and manages users and roles |
-| **Project Manager** | Upload & Crop, make tasks, import Hugging Face datasets, assign people, export ZIPs, push to the Hub; can also annotate, inspect and accept |
+| **Project Manager** | Upload & Crop, make tasks, import Hugging Face datasets, assign people, export ZIPs, push to the Hub; can also annotate and review |
 | **Annotator** | Annotates the packages of the tasks they are a member of; reviews the clips of the datasets they are assigned to |
-| **Quality Inspector** | Checks completed packages: **passes** them or **returns** them to the annotator with a note; may fix the text |
-| **Acceptor** | Final acceptance of the packages that passed inspection (or returns them) |
-| **Viewer** | Sees every task and dataset, changes nothing |
+| **Reviewer** | Reviews completed packages: **accepts** them or **returns** them to the annotator with a note; may fix the text |
 
-Annotators, inspectors and acceptors see only the tasks and datasets a manager added them to (the **Members** button). Every package goes through:
+Annotators and reviewers see only the tasks and datasets a manager added them to (the **Members** button). Every package goes through one review:
 
 ```
-Todo (annotator) --Complete--> Inspection --Pass--> Acceptance --Accept--> Done
-        ^                          |                    |
-        +------ Return + note -----+--------------------+
+Todo (annotator) --Complete--> Review --Accept--> Done
+        ^                        |
+        +---- Return + note -----+
 ```
 
-Nobody can inspect or accept a package they annotated themselves (except the administrator). A package that passed inspection can no longer be changed by its annotator. When you push a task to the Hub you choose **accepted** packages, packages that **passed inspection**, or all **completed** ones.
+Nobody can review a package they annotated themselves (except the administrator). An accepted package can no longer be changed by its annotator. When you push a task to the Hub you choose **accepted** packages or all **completed** ones.
+
+Inspection and acceptance used to be two separate steps with two roles (Quality Inspector, Acceptor). They are one review now: at start-up, users who had the Acceptor role become Reviewers (and are signed out once), task members listed as acceptors become reviewers, and a package that had passed the old inspection but was never accepted waits for the review again. Accepted packages and the review history are kept.
 
 ## How to use it
 
 ### Annotate your own recordings
 
 1. **Upload & Crop:** add audio files, cut them (for example every 20 s) and fix the cuts on the waveform.
-2. Tick the files that are ready and **push them to a task**. Open the task and press **Members** to choose its annotators, inspectors and acceptors.
+2. Tick the files that are ready and **push them to a task**. Open the task and press **Members** to choose its annotators and reviewers.
 3. **Annotators:** press **Recognize all** to draft every transcript, then go through the packages. Fix the text, split dialogue into speaker turns, fill in the speaker and recording details, and press **Complete**.
-4. **Quality inspectors** open the **Inspection** tab: **Pass inspection**, or **Return to annotator** with a note. **Acceptors** do the same in the **Acceptance** tab.
+4. **Reviewers** open the **Review** tab: **Accept**, or **Return to annotator** with a note.
 5. **Export task ZIP**, or **Push to Hugging Face** (accepted packages).
 
 ### Clean a Hugging Face dataset
@@ -217,7 +217,7 @@ backend/                    Flask JSON API
 ├── asr/                    Omnilingual-ASR-Khm in plain PyTorch, model loader, /transcribe
 ├── annotation/             Workflow 1: Upload & Crop, tasks, packages
 │   ├── audios.py, tasks.py Audio and tasks, members, access
-│   ├── review.py           Package review: annotating -> inspection -> acceptance
+│   ├── review.py           Package review: annotating -> review -> accepted
 │   ├── access.py           Access checks shared by the routes
 │   └── routes/             audios, media, tasks, export
 └── cleaning/               Workflow 2: Hugging Face dataset cleaning
