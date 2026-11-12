@@ -177,7 +177,7 @@ export function PackageView({ store, index, position, onStep, onBack, onAllDone 
     for (const [k, s] of todo.entries()) {
       if (editor.current?.session !== ses) return;
       setStatus(`Recognizing segment ${segs.indexOf(s) + 1} (${k + 1} / ${todo.length})…`);
-      if (await recognizeSeg(s, false) === "fatal") return notify("Recognition stopped: " + s.error + "\nCheck the model files in models/Omnilingual-ASR-Khm.", "error");
+      if (await recognizeSeg(s, false) === "fatal") return notify("Recognition stopped: " + s.error + "\nCheck the model files in backend/models/Omnilingual-ASR-Khm.", "error");
     }
     setStatus("Done. Check every segment's text, then fill in the forms below.");
     notify(`${todo.length} segment(s) recognized. Check the text, then fill in the forms.`, "success");

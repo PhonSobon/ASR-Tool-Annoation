@@ -1,6 +1,16 @@
+# The whole tool in Docker:      docker compose up -d --build      -> http://localhost:3000
+# Only PostgreSQL (run the API and the web app with Python / npm yourself):   docker compose up -d db
+#
+# Which database the backend uses (.env):
+#   - the `db` container below: COMPOSE_PROFILES=db (as in .env.example), DOCKER_DATABASE_URL empty
+#   - a PostgreSQL installed on this computer (port 5432): COMPOSE_PROFILES empty and
+#     DOCKER_DATABASE_URL=postgresql://user:password@host.docker.internal:5432/dbname
+# Settings come from .env (copy .env.example). The values under `environment:` replace the ones of .env that only
+# fit a run outside Docker (database host, data folder, listen address).
 services:
   db:
     image: postgres:18
+    profiles: ["db"]   # started by COMPOSE_PROFILES=db or by naming it (docker compose up -d db)
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-khmer_asr}
@@ -9,11 +19,52 @@ services:
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - pgdata:/var/lib/postgresql   
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-khmer_asr} -d ${POSTGRES_DB:-khmer_asr}"]
       interval: 5s
       retries: 10
 
+  backend:
+    build:
+      context: ./backend
+      args:
+        # GPU image: TORCH_INDEX=https://download.pytorch.org/whl/cu128 in .env (and uncomment `deploy:` below)
+        TORCH_INDEX: ${TORCH_INDEX:-https://download.pytorch.org/whl/cpu}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DOCKER_DATABASE_URL:-postgresql://${POSTGRES_USER:-khmer_asr}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-khmer_asr}}
+      HOST: 0.0.0.0
+      PORT: 5100
+      ASR_DATA_DIR: /data
+      # empty: backend/models/Omnilingual-ASR-Khm if its weights are there, else downloaded from Hugging Face
+      OMNI_ASR_MODEL: ${DOCKER_ASR_MODEL:-}
+      WEB_URL: http://localhost:${WEB_PORT:-3000}
+    volumes:
+      # audio files, dataset clips, secret key: a Docker volume, or DOCKER_DATA_DIR=./data to share them with the Python run
+      - ${DOCKER_DATA_DIR:-appdata}:/data
+      - hfcache:/hf-cache                # the model downloaded from Hugging Face (once)
+      - ./backend/models:/app/models:ro  # your local model weights, if you downloaded them
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # this computer, for a PostgreSQL installed on it (Linux needs this line)
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false   # not started when the backend uses another database
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        API_URL: http://backend:5100
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      - backend
+
 volumes:
   pgdata:
+  appdata:
+  hfcache:

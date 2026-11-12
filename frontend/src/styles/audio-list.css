@@ -20,3 +20,8 @@
   .audio-row { flex-wrap:wrap; }
   .ar-thumb { width:100%; }
 }
+/* "Same recording as …" under an uploaded file (duplicate audio) */
+.ar-dup { display:inline-flex; align-items:center; gap:6px; margin-top:6px; padding:3px 8px; border-radius:var(--r-sm); max-width:100%;
+          background:var(--err-soft); color:var(--err-text); font-size:var(--fs-xs); font-weight:500; text-decoration:none; }
+.ar-dup:hover { text-decoration:underline; }
+.ar-dup .i { width:13px; height:13px; flex:none; }

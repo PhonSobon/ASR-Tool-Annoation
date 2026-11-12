@@ -1,0 +1,11 @@
+.env
+.venv/
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+# the weights are mounted from the host (docker-compose.yml) or downloaded from Hugging Face
+models/**/*.safetensors
+models/**/.cache/

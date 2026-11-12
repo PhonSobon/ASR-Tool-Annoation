@@ -7,10 +7,10 @@ venv/
 # Uploaded audio and generated crops
 data/
 
-# Model weights are too big for GitHub (>100 MB) - see models/Omnilingual-ASR-Khm/DOWNLOAD.txt
-models/**/*.safetensors
-models/**/.cache/
-models/**/.gitattributes
+# Model weights are too big for GitHub (>100 MB) - see backend/models/Omnilingual-ASR-Khm/DOWNLOAD.txt
+backend/models/**/*.safetensors
+backend/models/**/.cache/
+backend/models/**/.gitattributes
 .pytest_cache/
 
 # Local settings and editors

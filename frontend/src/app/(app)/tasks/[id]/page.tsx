@@ -142,7 +142,7 @@ function TaskView({ store, can, nameOf, reload }: { store: TaskStore; can: (p: s
       store.markDirty(c);
       if (fatal) {
         setTaskStatus("Stopped — " + p.error);
-        notify("Recognition stopped: " + p.error + "\nCheck the model files in models/Omnilingual-ASR-Khm.", "error");
+        notify("Recognition stopped: " + p.error + "\nCheck the model files in backend/models/Omnilingual-ASR-Khm.", "error");
         break;
       }
     }

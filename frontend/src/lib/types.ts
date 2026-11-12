@@ -58,6 +58,11 @@ export interface TaskSummary {
 }
 export interface Task extends TaskSummary { audios: (AudioSummary & { segments: Crop[] })[] }
 
+/** an audio that shares speech with another one (api/annotation/duplicates.py) */
+export type DupKind = "identical" | "part_of" | "contains" | "overlap";
+export interface DupMatch { id: string; name: string; task_id: string | null; task: string | null; kind: DupKind;
+                            seconds: number; start: number; ref_start: number }
+
 export interface Job { kind: string; done: number; total: number; message: string; running: boolean; error: string | null; result: any }
 
 export interface DatasetAccess { view: boolean; review: boolean; bulk_accept: boolean; manage: boolean }

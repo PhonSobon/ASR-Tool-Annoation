@@ -2,7 +2,7 @@
 
 The web UI talks to the Flask backend through this JSON API. You can use it from scripts too. Errors come back as `{"error": "..."}` with a 4xx or 5xx status. Long work (imports, ASR checks, pushes to the Hub) runs as a background **job**; poll its `/job` URL for progress.
 
-Every call except `/api/auth/*` needs a login: `POST /api/auth/login` sets a session cookie (keep it, e.g. with `requests.Session()`). Without one the answer is `401`; a role without the permission gets `403`. Permissions per role are in `backend/auth/roles.py`.
+Every call except `/api/auth/*` needs a login: `POST /api/auth/login` sets a session cookie (keep it, e.g. with `requests.Session()`). Without one the answer is `401`; a role without the permission gets `403`. Permissions per role are in `backend/api/auth/roles.py`.
 
 ## Login and users
 
@@ -18,7 +18,7 @@ Every call except `/api/auth/*` needs a login: `POST /api/auth/login` sets a ses
 | GET | `/api/activity` | Activity log `?username=&role=&action=&since=&until=&q=&page=&per=` -> `{entries, total, page, pages}` (admin) |
 | GET | `/api/activity/overview` | Every user's status and work counts today / 7 days (admin) |
 | GET | `/api/activity/report` | Excel report of everyone `?period=week\|month&date=YYYY-MM-DD` (a day in that week / month; a week is Monday–Sunday) or `?period=custom&since=&until=` → `activity_<since>_to_<until>.xlsx` with the sheets Summary, Users, Daily and Activity log (admin) |
-| GET | `/api/activity/work` | Work Dashboard `?since=&until=` (YYYY-MM-DD) -> per user: `annotation {done, done_seconds, in_progress, returned, accepted, accepted_seconds, passed}`, `review {inspected, accepted, returned}` (`inspected`: passes from before the one review step), `cleaning {accepted, rejected, accepted_seconds}`, and `totals` (admin) |
+| GET | `/api/activity/work` | Dashboard, Team tab `?since=&until=` (YYYY-MM-DD) -> per user: `annotation {done, done_seconds, in_progress, returned, accepted, accepted_seconds, passed}`, `review {inspected, accepted, returned}` (`inspected`: passes from before the one review step), `cleaning {accepted, rejected, accepted_seconds}`, and `totals` (admin) |
 | GET | `/api/users/directory` | Active users for the members dialogs (managers) |
 
 ## Audio and tasks (workflow 1)

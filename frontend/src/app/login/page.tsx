@@ -20,7 +20,7 @@ export default function LoginPage() {
   useEffect(() => {
     getJson<{ user: Me | null }>("/api/auth/me")
       .then(j => j.user ? router.replace(next(j.user)) : setReady(true))
-      .catch(() => { setReady(true); setErr("Cannot reach the server - is the Flask backend (python app.py) running?"); });
+      .catch(() => { setReady(true); setErr("Cannot reach the server - is the Flask backend (backend/app.py) running?"); });
   }, [router]);
 
   const submit = async (e: FormEvent) => {

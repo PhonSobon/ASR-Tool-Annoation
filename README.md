@@ -39,14 +39,12 @@ It covers two jobs:
 
 ## Quick start
 
-The tool has two parts: a **Flask API** (Python, `backend/`) that stores everything in **PostgreSQL**, and a
-**Next.js web app** (`frontend/`) that the browser opens.
+The tool has two parts, each in its own folder: a **Flask API** (Python, `backend/`) that stores everything in
+**PostgreSQL**, and a **Next.js web app** (`frontend/`) that the browser opens. You can run it **with Docker**
+(easiest: one command) or **with Python and Node.js** directly (best while developing).
 
-**Requirements:** Python 3.10 or newer, [Node.js](https://nodejs.org/) 20 or newer, PostgreSQL 14 or newer (or
-Docker), and [FFmpeg](https://ffmpeg.org/download.html) on your `PATH`. An NVIDIA GPU is optional but makes
-recognition much faster.
-
-**1. Settings.** Copy `.env.example` to `.env` and set the database password and a `SECRET_KEY`:
+**1. Settings** (both ways). Copy `.env.example` to `.env`, then set `POSTGRES_PASSWORD` (and the same password in
+`DATABASE_URL`), `ADMIN_PASSWORD` and a `SECRET_KEY`:
 
 ```bash
 git clone https://github.com/PhonSobon/ASR-Tool-Annoation.git
@@ -54,10 +52,45 @@ cd ASR-Tool-Annoation
 cp .env.example .env            # Windows PowerShell: Copy-Item .env.example .env
 ```
 
-**2. PostgreSQL.** Either start the one in `docker-compose.yml` (it uses the `POSTGRES_*` values of `.env`):
+### Option A: run with Docker
+
+**Requirements:** [Docker](https://docs.docker.com/get-docker/) (Docker Desktop on Windows / macOS).
 
 ```bash
-docker compose up -d
+docker compose up -d --build    # PostgreSQL + API + web app
+```
+
+Open **http://localhost:3000** and sign in as the administrator of `.env`. The first build takes a while (PyTorch).
+
+```bash
+docker compose logs -f backend  # see what the API is doing
+docker compose down             # stop (your data stays in Docker volumes)
+```
+
+- The database, the uploaded audio (`/data`) and the downloaded model (`/hf-cache`) are kept in Docker volumes
+  (`pgdata`, `appdata`, `hfcache`), so they survive `docker compose down` and rebuilds. `docker compose down -v`
+  deletes them.
+- If you downloaded the weights into `backend/models/Omnilingual-ASR-Khm` (see [Model weights](#model-weights)), the
+  container uses them; otherwise it downloads the model the first time you transcribe.
+- **NVIDIA GPU:** set `TORCH_INDEX=https://download.pytorch.org/whl/cu128` in `.env`, uncomment the `deploy:` block
+  of the `backend` service in `docker-compose.yml` (needs the NVIDIA Container Toolkit), and rebuild.
+- Another port for the web app: `WEB_PORT=8080` in `.env`.
+- **PostgreSQL already installed on your computer** (port 5432)? Use it instead of the `db` container, with the
+  same data as the Python run: in `.env` set `COMPOSE_PROFILES=` (empty),
+  `DOCKER_DATABASE_URL=postgresql://user:password@host.docker.internal:5432/dbname` and `DOCKER_DATA_DIR=./data`.
+  Run either the Docker backend or `python app.py`, not both at once: background jobs live in one process.
+
+### Option B: run with Python and Node.js
+
+**Requirements:** Python 3.10 or newer, [Node.js](https://nodejs.org/) 20 or newer, PostgreSQL 14 or newer (or
+Docker for the database only), and [FFmpeg](https://ffmpeg.org/download.html) on your `PATH`. An NVIDIA GPU is
+optional but makes recognition much faster.
+
+**2. PostgreSQL.** Either start only the database container of `docker-compose.yml` (it uses the `POSTGRES_*` values
+of `.env`):
+
+```bash
+docker compose up -d db
 ```
 
 or use your own server: create a database and a user, and put them in `DATABASE_URL`, for example
@@ -66,11 +99,14 @@ or use your own server: create a database and a user, and put them in `DATABASE_
 **3. The API** (port 5100):
 
 ```bash
+cd backend
 python -m venv .venv
 # Windows: .venv\Scripts\activate    macOS / Linux: source .venv/bin/activate
 pip install -r requirements.txt
 python app.py
 ```
+
+For GPU support, install the CUDA build of PyTorch from [pytorch.org](https://pytorch.org/get-started/locally/) before `pip install -r requirements.txt`.
 
 **4. The web app** (port 3000), in a second terminal:
 
@@ -80,23 +116,22 @@ npm install
 npm run dev                     # for a team: npm run build && npm start
 ```
 
-Open **http://localhost:3000**. The first time, it asks you to create the administrator account.
+Open **http://localhost:3000** and sign in as the administrator of `.env`.
 
 **Coming from an earlier version** (data in JSON files in `data/`)? Copy it into the database once — users, tasks,
 segments and dataset reviews; the audio files stay where they are:
 
 ```bash
+cd backend
 flask --app app import-json
 ```
-
-For GPU support, install the CUDA build of PyTorch from [pytorch.org](https://pytorch.org/get-started/locally/) before `pip install -r requirements.txt`.
 
 ### Model weights
 
 The model weights (`model.safetensors`, 1.28 GB) are not stored in this repository. Either:
 
 - **Do nothing:** the app downloads the model from Hugging Face the first time you transcribe, or
-- **Download them once into the project** (works offline afterwards):
+- **Download them once into the project** (works offline afterwards), from the `backend/` folder:
 
   ```bash
   python -c "from huggingface_hub import snapshot_download; snapshot_download('Darayut/Omnilingual-ASR-Khm', local_dir='models/Omnilingual-ASR-Khm')"
@@ -106,7 +141,7 @@ To use another copy, set `OMNI_ASR_MODEL` to a Hugging Face repo id or to a fold
 
 ## Users and roles
 
-There is no sign-up: everyone signs in with an account the administrator made. The administrator comes from `ADMIN_USERNAME` (default `admin`) and `ADMIN_PASSWORD` in `.env`; it is created at start-up and its password can only be changed there (then restart). The administrator adds the other users under **Administration → Users & Roles** with a **default password**; managers, annotators, reviewers and viewers must choose their own password the first time they sign in. **Administration → Activity & Status** shows every user's status (online, never signed in, still on the default password, deactivated), who worked today and who did not, and the full activity log. **Administration → Work Dashboard** shows what each user produced in a period (all time, today, 7 / 30 days or chosen dates): hours annotated, packages completed and in progress, how many times their packages were returned (errors) and how many were accepted, the reviews they made, and the dataset clips they accepted or rejected. Every password must be **8 to 12 characters** with an upper-case letter, a lower-case letter, a number and a special character (such as `! @ # $ %`), no spaces, and must not contain the user name.
+There is no sign-up: everyone signs in with an account the administrator made. The administrator comes from `ADMIN_USERNAME` (default `admin`) and `ADMIN_PASSWORD` in `.env`; it is created at start-up and its password can only be changed there (then restart). The administrator adds the other users under **Administration → Users & Roles** with a **default password**; managers, annotators, reviewers and viewers must choose their own password the first time they sign in. **Administration → Activity & Status** shows every user's status (online, never signed in, still on the default password, deactivated), who worked today and who did not, and the full activity log. The **Team** tab of **Workbench → Dashboard** (administrators) shows what each user produced in a period (all time, today, 7 / 30 days or chosen dates): hours annotated, packages completed and in progress, how many times their packages were returned (errors) and how many were accepted, the reviews they made, and the dataset clips they accepted or rejected. Every password must be **8 to 12 characters** with an upper-case letter, a lower-case letter, a number and a special character (such as `! @ # $ %`), no spaces, and must not contain the user name.
 
 | Role | What it can do |
 |---|---|
@@ -171,7 +206,7 @@ variables set in the real environment win over the file. `.env` is not committed
 | Variable | Default | Meaning |
 |---|---|---|
 | `DATABASE_URL` | SQLite file `data/app.db` | The database: `postgresql://user:password@host:5432/dbname`. Without it a SQLite file is used (fine for one person trying the tool) |
-| `OMNI_ASR_MODEL` | `models/Omnilingual-ASR-Khm` if the weights are there, else the Hugging Face repo | The ASR model |
+| `OMNI_ASR_MODEL` | `backend/models/Omnilingual-ASR-Khm` if the weights are there, else the Hugging Face repo | The ASR model |
 | `ASR_DATA_DIR` | `data/` | Where the audio files and dataset clips are stored (everything else is in the database) |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `admin` / (none, required) | The administrator: made at start-up and kept in step with these values (its password cannot be changed in the app) |
 | `SECRET_KEY` | made once in `data/secret_key` | Signs the login cookies. Set the same value on every server behind a load balancer |
@@ -180,12 +215,18 @@ variables set in the real environment win over the file. `.env` is not committed
 | `CER_PASS` / `CER_BAD` | `0.10` / `0.50` | Dataset cleaning: CER limits for *passed* / *likely bad* |
 | `HOST` / `PORT` | `127.0.0.1` / `5100` | Where the API listens |
 | `WEB_URL` | (none) | The web app's address; opening the API's `/` in a browser goes there |
+| `FLASK_DEBUG` | `0` | `1` turns on the Flask debugger (only on your own computer) |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` / `POSTGRES_PORT` | | Used by `docker-compose.yml` to create the database container |
+| `WEB_PORT` | `3000` | Docker: the port of the web app on your computer |
+| `TORCH_INDEX` | the CPU build | Docker: where the backend image gets PyTorch (`https://download.pytorch.org/whl/cu128` for an NVIDIA GPU) |
+| `DOCKER_ASR_MODEL` | (empty) | Docker: `OMNI_ASR_MODEL` inside the container (a path below `/app/models` or a Hugging Face repo id) |
 
 The web app has its own `frontend/.env.local` (see [frontend/.env.example](frontend/.env.example)): `API_URL`, where the Flask API
 listens (default `http://127.0.0.1:5100`). The browser only talks to the web app, which forwards `/api/*` to Flask,
 so the login cookie stays on one address.
-| `FLASK_DEBUG` | `0` | `1` turns on the Flask debugger (only on your own computer) |
+
+In Docker, `docker-compose.yml` sets `DATABASE_URL` (the `db` container), `HOST`, `PORT` and `ASR_DATA_DIR` (`/data`)
+itself, and the web app is built with `API_URL=http://backend:5100`.
 
 ### Security
 
@@ -199,32 +240,38 @@ The code is organised by feature: each backend package holds its logic and its H
 page per screen and shared components.
 
 ```
-app.py                      Entry point of the API (python app.py)
-.env.example                Settings template (copy to .env)
-docker-compose.yml          PostgreSQL in Docker
-backend/                    Flask JSON API
-├── __init__.py             create_app(): config, database, login check, blueprints
-├── config.py               Settings (environment variables / .env)
-├── pages.py                / of the API (points to the web app)
-├── core/                   Shared: database (db.py: tables), JSON-import of old data (legacy.py), audio,
-│                           text normalization, background jobs, Hugging Face Hub (parquet), ZIP export
-├── auth/                   Users and roles
-│   ├── roles.py            Roles and their permissions (change what a role may do here)
-│   ├── users.py            Accounts (hashed passwords)
-│   ├── guard.py            Logged-in user, permission checks, wrong-password limit
-│   ├── activity.py         Activity log and user status
-│   └── routes.py           /api/auth/* (sign in, password), /api/users and /api/activity (admin)
-├── asr/                    Omnilingual-ASR-Khm in plain PyTorch, model loader, /transcribe
-├── annotation/             Workflow 1: Upload & Crop, tasks, packages
-│   ├── audios.py, tasks.py Audio and tasks, members, access
-│   ├── review.py           Package review: annotating -> review -> accepted
-│   ├── access.py           Access checks shared by the routes
-│   └── routes/             audios, media, tasks, export
-└── cleaning/               Workflow 2: Hugging Face dataset cleaning
-    ├── datasets.py         Imported batches, review, members
-    ├── quality.py          CER and audio / text checks
-    └── routes.py
+.env.example                Settings template (copy to .env), used by both Python and Docker
+docker-compose.yml          Docker: PostgreSQL + backend + frontend (or only `db`)
+backend/                    Flask JSON API (Python)
+├── app.py                  Entry point of the API (python app.py)
+├── requirements.txt        Python packages (requirements-dev.txt adds pytest)
+├── Dockerfile              Backend image (gunicorn, one process; PyTorch CPU or CUDA)
+├── api/                    The application package
+│   ├── __init__.py         create_app(): config, database, login check, blueprints
+│   ├── config.py           Settings (environment variables / .env)
+│   ├── pages.py            / of the API (points to the web app)
+│   ├── core/               Shared: database (db.py: tables), JSON-import of old data (legacy.py), audio,
+│   │                       text normalization, background jobs, Hugging Face Hub (parquet), ZIP export
+│   ├── auth/               Users and roles
+│   │   ├── roles.py        Roles and their permissions (change what a role may do here)
+│   │   ├── users.py        Accounts (hashed passwords)
+│   │   ├── guard.py        Logged-in user, permission checks, wrong-password limit
+│   │   ├── activity.py     Activity log and user status
+│   │   └── routes.py       /api/auth/* (sign in, password), /api/users and /api/activity (admin)
+│   ├── asr/                Omnilingual-ASR-Khm in plain PyTorch, model loader, /transcribe
+│   ├── annotation/         Workflow 1: Upload & Crop, tasks, packages
+│   │   ├── audios.py, tasks.py  Audio and tasks, members, access
+│   │   ├── review.py       Package review: annotating -> review -> accepted
+│   │   ├── access.py       Access checks shared by the routes
+│   │   └── routes/         audios, media, tasks, export
+│   └── cleaning/           Workflow 2: Hugging Face dataset cleaning
+│       ├── datasets.py     Imported batches, review, members
+│       ├── quality.py      CER and audio / text checks
+│       └── routes.py
+├── tests/                  pytest (SQLite per test, or TEST_DATABASE_URL=postgresql://...; ASR and Hub mocked)
+└── models/                 Model config and vocabulary (weights downloaded separately)
 frontend/                   Next.js web app (TypeScript, App Router)
+├── Dockerfile              Frontend image (standalone Next.js server)
 ├── next.config.ts          Forwards /api/* to the Flask API (API_URL)
 └── src/
     ├── app/                login/, and behind the login (app)/: tasks/, tasks/[id]/, upload/,
@@ -233,10 +280,9 @@ frontend/                   Next.js web app (TypeScript, App Router)
     │                       CutEditorPanel, task/ (package view, review bar)
     ├── lib/                api client, types, review stages, task store, cut-editor.ts (the waveform editor)
     └── styles/             CSS
-tests/                      pytest (SQLite per test, or TEST_DATABASE_URL=postgresql://...; ASR and Hub mocked)
 docs/                       User guide and API reference
-models/                     Model config and vocabulary (weights downloaded separately)
-data/                       Created at runtime, not in git (audio files, dataset clips)
+postman/                    Postman collection of the API
+data/                       Created at runtime by the Python run, not in git (audio files, dataset clips)
 ```
 
 The [HTTP API](docs/api.md) can also be used from scripts.
@@ -246,6 +292,7 @@ The [HTTP API](docs/api.md) can also be used from scripts.
 Contributions are welcome: bug reports, Khmer text-normalization rules, new quality checks, translations of the interface, and documentation. See **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
 ```bash
+cd backend
 pip install -r requirements-dev.txt
 python -m pytest                                   # SQLite
 TEST_DATABASE_URL=postgresql://... python -m pytest  # on PostgreSQL (an empty test database: its tables are dropped)
@@ -269,7 +316,7 @@ Results reported on the model card:
 | test_fleurs | 12.03% | 25.66% |
 | test_slr42 | 14.82% | 48.62% |
 
-The official inference code depends on [fairseq2](https://github.com/facebookresearch/fairseq2), which has no native Windows build. `backend/asr/omni_asr.py` re-implements the same architecture in plain PyTorch, following the [model's source repository](https://github.com/NDarayut/Omnilingual-ASR-Khm), and loads the published weights with a strict check.
+The official inference code depends on [fairseq2](https://github.com/facebookresearch/fairseq2), which has no native Windows build. `backend/api/asr/omni_asr.py` re-implements the same architecture in plain PyTorch, following the [model's source repository](https://github.com/NDarayut/Omnilingual-ASR-Khm), and loads the published weights with a strict check.
 
 ## References
 
