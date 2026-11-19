@@ -8,4 +8,6 @@ __pycache__/
 tests/
 # the weights are mounted from the host (docker-compose.yml) or downloaded from Hugging Face
 models/**/*.safetensors
+models/**/*.onnx
+models/**/tokens.json
 models/**/.cache/

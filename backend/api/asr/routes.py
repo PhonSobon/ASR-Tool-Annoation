@@ -22,12 +22,12 @@ def transcribe(audio_id):
     start = float(data.get("start", 0))
     clip = audio.clip(pcm, start, data.get("end", 0), sr).astype(np.float32) / 32768
     try:
-        res = recognizer.recognize(clip, current_app.config["OMNI_ASR_MODEL"])
-    except (OSError, ImportError) as e:  # missing model files / bad repo id / missing torch
-        return jsonify(error=f"Omni-ASR: {e}", fatal=True), 500
+        res = recognizer.recognize(clip, current_app.config["ASR_MODEL"])
+    except (OSError, ImportError) as e:  # missing model files / bad repo id / missing onnxruntime
+        return jsonify(error=f"ASR: {e}", fatal=True), 500
     except Exception as e:
-        current_app.logger.exception("Omni-ASR failed")
-        return jsonify(error=f"Omni-ASR: {e}"), 500
+        current_app.logger.exception("ASR failed")
+        return jsonify(error=f"ASR: {e}"), 500
     for w in res["words"]:
         w["start"] = round(w["start"] + start, 3)
         w["end"] = round(w["end"] + start, 3)

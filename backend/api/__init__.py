@@ -1,6 +1,6 @@
 """Khmer ASR annotation tool - Flask backend (JSON API; the web UI is the Next.js app in frontend/).
 
-Upload audio, split it into segments on one timeline, transcribe each segment with the local Omnilingual-ASR-Khm
+Upload audio, split it into segments on one timeline, transcribe each segment with the local Sota-ASR-Khmer-ONNX
 model, have the packages checked (one review step), and export a WAV + metadata.json dataset. Imported Hugging
 Face datasets are cleaned the same way. Every feature is a package with its logic and its routes:
 

@@ -1,0 +1,5 @@
+Local copy of https://huggingface.co/muyleanging/Sota-ASR-Khmer-ONNX (Khmer Conformer CTC + attention ASR, ONNX int8).
+Used by api/asr/sota_asr.py by default. The files are not in git: the model has a preview license (personal use,
+evaluation and research; no redistribution). To download (from the backend/ folder, about 33 MB):
+  python -c "from huggingface_hub import snapshot_download; snapshot_download('muyleanging/Sota-ASR-Khmer-ONNX', allow_patterns=['*.int8.onnx', 'tokens.json', 'README.md', 'LICENSE'], local_dir='models/Sota-ASR-Khmer-ONNX')"
+Note: the pattern also matches the v3/ folder; only the top-level files are used.

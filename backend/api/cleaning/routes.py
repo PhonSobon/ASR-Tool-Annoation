@@ -362,8 +362,8 @@ def recognize_item(dataset_id, n):
     try:
         return jsonify(datasets.recognize_item(dataset_id, n))
     except Exception as e:
-        current_app.logger.exception("Omni-ASR failed")
-        return jsonify(error=f"Omni-ASR: {e}"), 500
+        current_app.logger.exception("ASR failed")
+        return jsonify(error=f"ASR: {e}"), 500
 
 
 @bp.post("/datasets/<dataset_id>/accept-passing")
@@ -487,7 +487,7 @@ def _report(meta, include, trim):
         source,
         "- Audio: 16 kHz mono WAV" + (", long silence at the start / end trimmed" if trim else ""),
         f"- Automatic check: every clip recognized with "
-        f"[Darayut/Omnilingual-ASR-Khm](https://huggingface.co/Darayut/Omnilingual-ASR-Khm) and compared with its text "
+        f"[muyleanging/Sota-ASR-Khmer-ONNX](https://huggingface.co/muyleanging/Sota-ASR-Khmer-ONNX) and compared with its text "
         f"(character error rate, spaces and punctuation ignored; pass <= {cfg['CER_PASS']:.0%}, likely bad > "
         f"{cfg['CER_BAD']:.0%}); then reviewed by a person",
         f"- `{meta['text_column']}_normalized`: the final text normalized for training (zero-width spaces removed, "

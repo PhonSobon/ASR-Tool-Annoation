@@ -28,9 +28,6 @@ services:
   backend:
     build:
       context: ./backend
-      args:
-        # GPU image: TORCH_INDEX=https://download.pytorch.org/whl/cu128 in .env (and uncomment `deploy:` below)
-        TORCH_INDEX: ${TORCH_INDEX:-https://download.pytorch.org/whl/cpu}
     restart: unless-stopped
     env_file: .env
     environment:
@@ -38,8 +35,8 @@ services:
       HOST: 0.0.0.0
       PORT: 5100
       ASR_DATA_DIR: /data
-      # empty: backend/models/Omnilingual-ASR-Khm if its weights are there, else downloaded from Hugging Face
-      OMNI_ASR_MODEL: ${DOCKER_ASR_MODEL:-}
+      # empty: backend/models/Sota-ASR-Khmer-ONNX if its files are there, else downloaded from Hugging Face
+      ASR_MODEL: ${DOCKER_ASR_MODEL:-}
       WEB_URL: http://localhost:${WEB_PORT:-3000}
     volumes:
       # audio files, dataset clips, secret key: a Docker volume, or DOCKER_DATA_DIR=./data to share them with the Python run

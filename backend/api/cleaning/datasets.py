@@ -491,7 +491,7 @@ def recognize_item(dataset_id, n):
     if not 0 <= n < len(items):
         raise DatasetNotFound("Clip not found")
     x = clip_pcm(dataset_id, items[n]).astype("float32") / 32768
-    _store_asr(dataset_id, {n: recognizer.recognize(x, current_app.config["OMNI_ASR_MODEL"])["text"]})
+    _store_asr(dataset_id, {n: recognizer.recognize(x, current_app.config["ASR_MODEL"])["text"]})
     return load_items(dataset_id)[n]
 
 
@@ -519,7 +519,7 @@ def accept_passing(dataset_id, max_cer, reviewer=""):
 def run_checks(dataset_id, job, redo=False):
     """Recognize every clip (only the unchecked ones unless redo) and score it against its text.
     The trim is applied, so each part of a cut row is checked on its own audio."""
-    model = current_app.config["OMNI_ASR_MODEL"]
+    model = current_app.config["ASR_MODEL"]
     todo = [(n, it) for n, it in enumerate(load_items(dataset_id))
             if redo or it.get("asr_text") is None]  # clips cannot be cut or joined while a job runs
     done, pending = 0, {}

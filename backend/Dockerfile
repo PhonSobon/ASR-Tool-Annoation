@@ -1,10 +1,7 @@
 # Flask API of the Khmer Audio Annotation Tool.
 #   docker build -t khmer-asr-backend backend
-# PyTorch: the CPU build by default (small image). For an NVIDIA GPU build with
-#   --build-arg TORCH_INDEX=https://download.pytorch.org/whl/cu128
+# The ASR model runs with ONNX Runtime on the CPU (26M parameters, no PyTorch needed).
 FROM python:3.12-slim
-
-ARG TORCH_INDEX=https://download.pytorch.org/whl/cpu
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -20,10 +17,9 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# torch first (its own index), then the rest; this layer is cached until requirements.txt changes
+# this layer is cached until requirements.txt changes
 COPY requirements.txt .
-RUN pip install torch --index-url ${TORCH_INDEX} \
-    && pip install -r requirements.txt gunicorn
+RUN pip install -r requirements.txt gunicorn
 
 COPY . .
 

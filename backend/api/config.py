@@ -9,15 +9,15 @@ ROOT_DIR = os.path.dirname(BASE_DIR)                                     # proje
 load_dotenv(os.path.join(ROOT_DIR, ".env"))
 load_dotenv(os.path.join(BASE_DIR, ".env"))   # optional backend/.env; the root .env wins
 
-OMNI_REPO = "Darayut/Omnilingual-ASR-Khm"
-OMNI_LOCAL_DIR = os.path.join(BASE_DIR, "models", "Omnilingual-ASR-Khm")  # model.safetensors + config.json + vocab.json
+ASR_REPO = "muyleanging/Sota-ASR-Khmer-ONNX"
+ASR_LOCAL_DIR = os.path.join(BASE_DIR, "models", "Sota-ASR-Khmer-ONNX")  # encoder/decoder.int8.onnx + tokens.json
 
 
 def _default_model():
     """Prefer the project's own copy; fall back to downloading from Hugging Face if it is missing."""
-    if os.path.isfile(os.path.join(OMNI_LOCAL_DIR, "model.safetensors")):
-        return OMNI_LOCAL_DIR
-    return OMNI_REPO
+    if os.path.isfile(os.path.join(ASR_LOCAL_DIR, "encoder.int8.onnx")):
+        return ASR_LOCAL_DIR
+    return ASR_REPO
 
 
 def database_url(url, data_dir):
@@ -40,7 +40,7 @@ class Config:
     # where versions before the database kept their JSON files (flask import-json reads them)
     TASKS_DIR = os.path.join(DATA_DIR, "tasks")
     USERS_FILE = os.path.join(DATA_DIR, "users.json")
-    OMNI_ASR_MODEL = os.environ.get("OMNI_ASR_MODEL") or _default_model()
+    ASR_MODEL = os.environ.get("ASR_MODEL") or _default_model()
 
     # Login: the session cookie is signed with SECRET_KEY (made once and kept in DATA_DIR/secret_key if not set).
     # ADMIN_USERNAME (default "admin") + ADMIN_PASSWORD: the administrator, made at start-up and kept in step with these
