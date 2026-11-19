@@ -14,13 +14,16 @@ import { useNotify } from "./notify";
 import { useSession } from "./session";
 import { ThemeSwitch } from "./theme";
 
-const MENU: { head: string; icon: IconName; perm?: string; items: { href: string; label: string; perm?: string }[] }[] = [
-  { head: "Data", icon: "database", perm: "audio.upload", items: [{ href: "/upload", label: "Load Data" }] },
-  { head: "Workbench", icon: "dashboard", items: [{ href: "/dashboard", label: "Dashboard", perm: "task.manage" },
-                                                  { href: "/tasks", label: "My Tasks" }] },
-  { head: "Administration", icon: "users", perm: "users.manage",
-    items: [{ href: "/users", label: "Users & Roles" }, { href: "/activity", label: "Activity & Status" },
-            { href: "/work", label: "Work Dashboard" }] },
+// Every link has its own icon; the group headings are plain labels. The Dashboard has a Projects and (for
+// administrators) a Team tab - the former Work Dashboard (/work redirects there).
+const MENU: { head: string; perm?: string; items: { href: string; label: string; icon: IconName; perm?: string }[] }[] = [
+  { head: "Workbench", items: [{ href: "/dashboard", label: "Dashboard", icon: "chart", perm: "task.manage" },
+                               { href: "/tasks", label: "My Tasks", icon: "list-checks" }] },
+  { head: "Data", perm: "audio.upload", items: [{ href: "/upload", label: "Load Data", icon: "upload" },
+                                                { href: "/duplicates", label: "Duplicates", icon: "copy", perm: "task.manage" }] },
+  { head: "Administration", perm: "users.manage",
+    items: [{ href: "/users", label: "Users & Roles", icon: "users" },
+            { href: "/activity", label: "Activity & Status", icon: "activity" }] },
 ];
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -66,10 +69,11 @@ export function Shell({ children }: { children: ReactNode }) {
             <div key={g.head} className={`nav-group${closed.has(g.head) ? " closed" : ""}`}>
               <button className="nav-head" type="button" onClick={() => setClosed(c => {
                 const n = new Set(c); n.has(g.head) ? n.delete(g.head) : n.add(g.head); return n; })}>
-                <Icon name={g.icon} /> {g.head} <span className="caret"><Icon name="chevron-up" /></span>
+                {g.head} <span className="caret"><Icon name="chevron-up" /></span>
               </button>
               {g.items.filter(it => !it.perm || can(it.perm)).map(it => (
-                <Link key={it.href} className={`nav-item${path === it.href || path.startsWith(it.href + "/") ? " on" : ""}`} href={it.href}>{it.label}</Link>
+                <Link key={it.href} className={`nav-item${path === it.href || path.startsWith(it.href + "/") ? " on" : ""}`} href={it.href}>
+                  <Icon name={it.icon} /> {it.label}</Link>
               ))}
             </div>
           ))}

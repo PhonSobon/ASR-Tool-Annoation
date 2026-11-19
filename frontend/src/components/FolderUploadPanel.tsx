@@ -24,7 +24,7 @@ async function sendPart(id: string, part: Pair[]) {
       const r = await fetch(`/api/tasks/${id}/files`, { method: "POST", body: fd });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw Object.assign(new Error(j.error || `HTTP ${r.status}`), { fatal: r.status < 500 });
-      return j as { added: number; skipped: string[]; failed: { file: string; error: string }[] };
+      return j as { added: number; skipped: string[]; failed: { file: string; error: string }[]; duplicates?: number };
     } catch (e: any) {
       if (e.fatal || k >= TRIES) throw e;
       await new Promise(ok => setTimeout(ok, 1000 * k));
@@ -77,11 +77,11 @@ export function FolderUploadPanel() {
     try { ds = await api<TaskSummary>("/api/tasks/load/local", { name: name.trim() }); }
     catch (e: any) { setProgress(null); return notify("Loading failed: " + e.message, "error"); }
     const failed: { file: string; error: string }[] = [];
-    let done = 0, added = 0;
+    let done = 0, added = 0, dups = 0;
     try {
       for (const part of parts(send)) {
         const r = await sendPart(ds.id, part);
-        added += r.added + r.skipped.length; failed.push(...r.failed);
+        added += r.added + r.skipped.length; failed.push(...r.failed); dups += r.duplicates || 0;
         done += part.length; setProgress({ done, total: send.length });
       }
       await api(`/api/tasks/${ds.id}/finish`, {});
@@ -93,6 +93,7 @@ export function FolderUploadPanel() {
     notify(`Loaded ${added} clips into the task “${ds.name}” — each clip is a package with its text; assign the people in Members.`, "success");
     if (failed.length) notify(`${failed.length} file${failed.length > 1 ? "s" : ""} could not be read: ` +
                               failed.slice(0, 5).map(f => f.file).join(", ") + (failed.length > 5 ? ", …" : ""), "warn", 0);
+    if (dups) notify(`${dups} clip${dups > 1 ? "s" : ""} look like audio already in the tool. Open Data → Duplicates to compare them and skip the copies before anyone annotates them.`, "warn", 0);
     router.push(`/tasks/${ds.id}`);
   };
 

@@ -7,10 +7,12 @@ venv/
 # Uploaded audio and generated crops
 data/
 
-# Model weights are too big for GitHub (>100 MB) - see models/Omnilingual-ASR-Khm/DOWNLOAD.txt
-models/**/*.safetensors
-models/**/.cache/
-models/**/.gitattributes
+# Model files are not ours to redistribute (preview license) - see backend/models/Sota-ASR-Khmer-ONNX/DOWNLOAD.txt
+backend/models/**/*.safetensors
+backend/models/Sota-ASR-Khmer-ONNX/*
+!backend/models/Sota-ASR-Khmer-ONNX/DOWNLOAD.txt
+backend/models/**/.cache/
+backend/models/**/.gitattributes
 .pytest_cache/
 
 # Local settings and editors

@@ -16,9 +16,11 @@ import { useCrumbs, useSession } from "@/components/session";
 import { api, decodePeaks, del, getJson, uploadFile } from "@/lib/api";
 import type { CutEditor, EditorHooks } from "@/lib/cut-editor";
 import { fmtDur } from "@/lib/format";
-import type { AudioSummary } from "@/lib/types";
+import { dupText } from "@/lib/duplicates";
+import type { AudioSummary, DupMatch } from "@/lib/types";
 
-type Item = Partial<AudioSummary> & { key: string; name: string; pick?: boolean; uploading?: boolean; progress?: number; error?: string; file?: File };
+type Item = Partial<AudioSummary> & { key: string; name: string; pick?: boolean; uploading?: boolean; progress?: number; error?: string; file?: File;
+  duplicates?: DupMatch[] };
 
 const THUMB_BUCKETS = 220;
 const thumbs = new Map<string, Int8Array>();   // audio id -> min/max pairs
@@ -102,12 +104,13 @@ export default function UploadPage() {
     queue.current.push(...rows);
     if (uploading.current) return;                       // the running loop picks up the new rows
     uploading.current = true;
-    let failed = 0;
+    let failed = 0, dups = 0;
     while (queue.current.length) {
       const row = queue.current.shift()!;
       try {
         const j = await uploadFile(row.file!, p => update(l => l.map(x => x.key === row.key ? { ...x, progress: p } : x)));
         update(l => l.map(x => x.key === row.key ? { ...j, key: row.key } : x));
+        if (j.duplicates?.length) dups++;
         if (!editor.current?.session) await openAudio({ ...j, key: row.key });
       } catch (e: any) {
         failed++;
@@ -119,6 +122,7 @@ export default function UploadPage() {
                      : "Upload finished. Choose a cut length, then “Cut selected audio” or “Cut all audio”.");
     notify(failed ? `${failed} file(s) could not be read. Remove them and try another format.` : "Upload finished. Choose a cut length, then cut the audio.",
            failed ? "error" : "success");
+    if (dups) notify(`${dups} file(s) look like audio already in the tool — see the warning under each file, or open Duplicates.`, "warn", 0);
   };
 
   const removeItem = async (it: Item) => {
@@ -256,7 +260,12 @@ export default function UploadPage() {
                   : it.error ? <span className="errmsg">{it.error}</span>
                   : <><span className="pill dur"><Icon name="clock" />{fmtDur(it.duration || 0)}</span>
                       <span className={`pill ${isCut(it) ? "ok" : "warn"}`}>{isCut(it) ? <><Icon name="scissors" />{it.count} crops</> : "Not cut yet"}</span></>}
-                </div></div>
+                </div>
+                {!!it.duplicates?.length && (
+                  <Link className="ar-dup" href="/duplicates" title="Open Duplicates to compare and decide">
+                    <Icon name="copy" />{dupText(it.duplicates[0])}{it.duplicates.length > 1 && ` (+${it.duplicates.length - 1} more)`}
+                  </Link>)}
+              </div>
               {!it.uploading && <button className="ar-del" title="Remove this audio" aria-label="Remove this audio" onClick={() => removeItem(it)}><Icon name="trash" /></button>}
             </div>
           ))}
